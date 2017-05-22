@@ -1,0 +1,9 @@
+# depslib dependency file v1.0
+1495423883 source:/home/oscar/Downloads/color2dbarcodes/main.cpp
+	<iostream>
+	<stdlib.h>
+	<opencv2/opencv.hpp>
+	"decoding.h"
+
+1495413216 /home/oscar/Downloads/color2dbarcodes/decoding.h
+
