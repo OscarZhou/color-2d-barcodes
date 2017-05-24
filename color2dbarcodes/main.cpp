@@ -26,7 +26,6 @@ int main(int argc, char** argv)
     }
 
     /*  get a center of a circle */
-
     Mat colorImg = imread(argv[1], 1);
     if( colorImg.empty() )
     {
@@ -69,91 +68,62 @@ int main(int argc, char** argv)
         }
     }
 
-
     /* find a line */
-    IplImage* srcimg, *dstimg, *colordstimg;
-    srcimg = cvLoadImage(argv[1], 0);
-    dstimg = cvCreateImage(cvGetSize(srcimg), 8, 1);
-    colordstimg = cvCreateImage(cvGetSize(srcimg), 8, 3);
-    CvMemStorage* storage = cvCreateMemStorage(0);
-    CvSeq* lines = 0;
-    int i;
+    Mat srcimgforline, dstimageforline, colorimgforline;
+    srcimgforline = colorImg.clone();
 
-    //threshold(imgOri, imgPcd, 50, 255, THRESH_BINARY);
+    Canny( srcimgforline, dstimageforline, 50, 200, 3 );
+    cvtColor( dstimageforline, colorimgforline, CV_GRAY2BGR );
 
-    cvCanny(srcimg, dstimg, 100, 100, 3);
-    cvCvtColor(dstimg, colordstimg, CV_GRAY2BGR );
+    vector<Vec4i> lines1;
+    HoughLinesP( dstimageforline, lines1, 1, CV_PI/180, 100, 200, 10 );
 
-    lines = cvHoughLines2(dstimg, storage, CV_HOUGH_STANDARD, 1, CV_PI/180, 400);
-    cout<<"lines->total="<<lines->total<<endl;
-
-    set<float> float_set;
-    for(i = 0; i < lines->total; i++)
+    //vector<float> angles;
+    cout<<"lines.size()="<<lines1.size()<<endl;
+    float angle;
+    for( size_t i = 0; i < lines1.size(); i++ )
     {
-        float* line = (float*)cvGetSeqElem(lines, i);
-        float rho = line[0];
-        float theta = line[1];
-        /*
-        CvPoint pt1, pt2;
-        double a = cos(theta), b = sin(theta);
-        if(fabs(a) < 0.001)
-        {
-            pt1.x = pt2.x = cvRound(rho);
-            pt1.y = 0;
-            pt2.y = colordstimg->height;
-        }
-        else if(fabs(b) < 0.001)
-        {
-            pt1.y = pt2.y = cvRound(rho);
-            pt1.x = 0;
-            pt2.x = colordstimg->width;
-        }
-        else
-        {
-            pt1.x = 0;
-            pt1.y = cvRound(rho/b);
-            pt2.x = cvRound(rho/a);
-            pt2.y = 0;
-        }
+        float x = lines1[i][2] - lines1[i][0];
+        float y = lines1[i][3] - lines1[i][1];
+
+        angle = round(atan2(y, x) * 180 / CV_PI);
+        cout<<"|||||||||"<<angle<<endl;
+
+        line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
+            Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
 
 
-        cvLine(colordstimg, pt1, pt2, CV_RGB(255, 0, 0), 2, 8);
-        */
-        float_set.insert(theta);
+        //cout<<sqrt(y*y + x * x)<<endl;
+        //pcount= std::make_pair()
+
+        //angles.push_back(angle);
 
     }
-    cout<<"float_set.size()="<<float_set.size()<<endl;
-
-
-    float theta1 = 0.0;
-    for(std::set<float>::iterator it=float_set.begin(); it!=float_set.end(); it++)
-    {
-        cout<<"theta="<<*it<<endl;
-        theta1 = *it;
-    }
+    namedWindow("Original image1", WINDOW_AUTOSIZE );
+    imshow("Original image1", colorimgforline);
 
 
     /* rotate the circle according to the theta */
-    Mat rotmatrix = getRotationMatrix2D(Point(circles[0][0], circles[0][1]), theta1*180/CV_PI, 1);
+    Mat rotmatrix = getRotationMatrix2D(Point(circles[0][0], circles[0][1]), angle, 1);
     Mat affineImg;
     warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
-    /*
+
     namedWindow("Before Rotation", WINDOW_AUTOSIZE );
     imshow("Before Rotation", colorImg);
     namedWindow("After Rotation", WINDOW_AUTOSIZE );
     imshow("After Rotation", affineImg);
-    */
+
 
 
     //cvNamedWindow("Source", WINDOW_AUTOSIZE   );
     //cvShowImage("Source", srcimg);
-    cvNamedWindow("Hough", WINDOW_AUTOSIZE  );
-    cvShowImage("Hough", dstimg);
+    //cvNamedWindow("Hough", WINDOW_AUTOSIZE  );
+    //cvShowImage("Hough", dstimg);
 
     //namedWindow("Circles detected", WINDOW_AUTOSIZE );
     //imshow("Circles detected", greyImg);
-    namedWindow("Original image", WINDOW_AUTOSIZE );
-    imshow("Original image", colorImg);
+    //namedWindow("Original image", WINDOW_AUTOSIZE );
+    //imshow("Original image", colorImg);
 
 
 
