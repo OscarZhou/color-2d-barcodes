@@ -16,6 +16,10 @@ using namespace cv;
 #define MpixelG(image, x, y) ((uchar *)(((image).data)+(y)*((image).step)))[(x)*((image).channels())+1]
 #define MpixelR(image, x, y) ((uchar *)(((image).data)+(y)*((image).step)))[(x)*((image).channels())+2]
 
+
+#define MASK 1<<5 | 1<<4 | 1<<3 | 1<<2 | 1<<1 | 1<<0
+
+
 struct s_block
 {
     int b;
@@ -60,6 +64,17 @@ static s_color b_colors[24] = {{false, false, false},
                         {true, true, true}};
 
 static int numofblockinrow[24] = {4, 8, 10, 12, 13, 15, 16, 17, 18, 18, 19, 20, 20, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 23};
+
+char decode(Mat affineImg, Point pt1, Point pt2);
+
+
+void printpoint(Mat colorImg, Point pt)
+{
+
+    MpixelR(colorImg, pt.x, pt.y) = 0;
+    MpixelG(colorImg, pt.x, pt.y) = 0;
+    MpixelB(colorImg, pt.x, pt.y) = 0;
+}
 
 int main(int argc, char** argv)
 {
@@ -142,6 +157,7 @@ int main(int argc, char** argv)
         circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
         /* paint the certer of the circle in order to observe the result of detection more obviously */
         int j = 0;
+        /*
         for(j = 0; j< 5; j++)
         {
             MpixelR(colorImg, c[0], c[1]-j) = 0;
@@ -160,6 +176,7 @@ int main(int argc, char** argv)
             MpixelG(colorImg, c[0]+j, c[1]) = 0;
             MpixelB(colorImg, c[0]+j, c[1]) = 0;
         }
+        */
     }
 
     /* find a line */
@@ -244,17 +261,62 @@ int main(int argc, char** argv)
     rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     warpAffine(affineImg, affineImg, rotmatrix, colorImg.size());
 
-
-
+    cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
     /* align the center of the circle */
-    int icol = 0;//center.x-30;
-    //int irow = 0;//center.y-30;
-    //int k;
-    //for(k=center.x-30; k<center.x+30; k++)
-    //{
-    //    s_block
-    //}
+    int min_col = center.x-20, max_col = center.x+20;//center.x-30;
+    int min_row = center.y-20, max_row = center.y+20;//center.y-30;
 
+    int k, bleft=0, btop=0;
+    int length_row = 0;
+    int length_col = 0;
+    for(k=min_col; k<max_col; k++)
+    {
+        s_color color;
+        color.r = MpixelR(affineImg, k, center.y)>180 ?true:false;
+        color.g = MpixelG(affineImg, k, center.y)>180 ?true:false;
+        color.b = MpixelB(affineImg, k, center.y)>180 ?true:false;
+
+        if((color.r && color.g && color.b) )
+        {
+            if(length_col == 0)
+            {
+                bleft = k;
+            }
+            length_col++;
+        }
+        else continue;
+
+    }
+
+    for(k=min_row; k<max_row; k++)
+    {
+        s_color color;
+        color.r = MpixelR(affineImg, center.x, k)>180 ?true:false;
+        color.g = MpixelG(affineImg, center.x, k)>180 ?true:false;
+        color.b = MpixelB(affineImg, center.x, k)>180 ?true:false;
+
+        if((color.r && color.g && color.b))
+        {
+            if(length_row == 0)
+            {
+                btop = k;
+            }
+            length_row++;
+        }
+        else continue;
+
+    }
+    cout<<"boundary position=("<<bleft<<", "<<btop<<")"<<endl;
+    Point pt3 = Point(bleft, center.y);
+    Point pt4 = Point(center.x, btop);
+    printpoint(affineImg, pt3);
+    printpoint(affineImg, pt4);
+
+
+    center.x = bleft + round(length_col / 2.0) -1;
+    center.y = btop + round(length_row / 2.0) -1;
+    cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
+    printpoint(affineImg, center);
     /*find the blocks contains the valid information */
 
     /*
@@ -332,33 +394,7 @@ int main(int argc, char** argv)
     }
     */
 
-    /* decode  emulator 2 square */
-    Point pt1 = Point(center.x-20, center.y);//magenta
-    Point pt2 = Point(center.x+10, center.y);//red
-    s_block b1, b2;
-    b1.r = MpixelR(affineImg, pt1.x, pt1.y)>180 ?1:0;
-    b1.g = MpixelG(affineImg, pt1.x, pt1.y)>180 ?1:0;
-    b1.b = MpixelB(affineImg, pt1.x, pt1.y)>180 ?1:0;
 
-    b2.r = MpixelR(affineImg, pt2.x, pt2.y)>180 ?1:0;
-    b2.g = MpixelG(affineImg, pt2.x, pt2.y)>180 ?1:0;
-    b2.b = MpixelB(affineImg, pt2.x, pt2.y)>180 ?1:0;
-    cout<<b1.r<<", "<<b1.g<<", "<<b1.b<<endl;
-    int mask = 1<<5 | 1<<4 | 1<<3 | 1<<2 | 1<<1 | 1<<0;
-    int bb1 = (b1.r<<5 | b1.g << 4| b1.b<<3) & mask;
-    int bb2 = (b2.r<<2 | b2.g << 1| b2.b<<0) & mask;
-    cout<<bb1<<endl;
-    char x = encodingarray[bb1 | bb2];
-    cout<<"x= "<<x<<endl;
-
-    MpixelR(affineImg, pt1.x, pt1.y) = 0;
-    MpixelG(affineImg, pt1.x, pt1.y) = 0;
-    MpixelB(affineImg, pt1.x, pt1.y) = 0;
-
-
-    MpixelR(affineImg, pt2.x, pt2.y) = 0;
-    MpixelG(affineImg, pt2.x, pt2.y) = 0;
-    MpixelB(affineImg, pt2.x, pt2.y) = 0;
 
     //namedWindow("Before Rotation", WINDOW_NORMAL );
     //imshow("Before Rotation", colorImg);
@@ -383,5 +419,30 @@ int main(int argc, char** argv)
     return 0;
 }
 
+char decode(Mat affineImg, Point pt1, Point pt2)
+{
+    /* decode  emulator 2 square */
+    //Point pt1 = Point(center.x-20, center.y);//magenta
+    //Point pt2 = Point(center.x+10, center.y);//red
+    s_block b1, b2;
+    b1.r = MpixelR(affineImg, pt1.x, pt1.y)>180 ?1:0;
+    b1.g = MpixelG(affineImg, pt1.x, pt1.y)>180 ?1:0;
+    b1.b = MpixelB(affineImg, pt1.x, pt1.y)>180 ?1:0;
 
+    b2.r = MpixelR(affineImg, pt2.x, pt2.y)>180 ?1:0;
+    b2.g = MpixelG(affineImg, pt2.x, pt2.y)>180 ?1:0;
+    b2.b = MpixelB(affineImg, pt2.x, pt2.y)>180 ?1:0;
+    cout<<b1.r<<", "<<b1.g<<", "<<b1.b<<endl;
+
+    int bb1 = (b1.r<<5 | b1.g << 4| b1.b<<3) & MASK;
+    int bb2 = (b2.r<<2 | b2.g << 1| b2.b<<0) & MASK;
+
+    char x = encodingarray[bb1 | bb2];
+    cout<<"x= "<<x<<endl;
+
+    printpoint(affineImg, pt1);
+    printpoint(affineImg, pt2);
+
+    return encodingarray[bb1 | bb2];
+}
 
