@@ -29,10 +29,9 @@ struct s_block
 
 struct s_color
 {
-    bool b;
-    bool g;
     bool r;
-
+    bool g;
+    bool b;
 };
 
 /*                       black      red       green      blue       white        cyan         magenta     yellow*/
@@ -262,9 +261,13 @@ int main(int argc, char** argv)
     warpAffine(affineImg, affineImg, rotmatrix, colorImg.size());
 
     cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
+
+
+
     /* align the center of the circle */
-    int min_col = center.x-20, max_col = center.x+20;//center.x-30;
-    int min_row = center.y-20, max_row = center.y+20;//center.y-30;
+    // according to the radius to determine the times of for loop
+    int min_col = center.x-round(circles[0][2]/23), max_col = center.x+round(circles[0][2]/23);//center.x-30;
+    int min_row = center.y-round(circles[0][2]/23), max_row = center.y+round(circles[0][2]/23);//center.y-30;
 
     int k, bleft=0, btop=0;
     int length_row = 0;
@@ -317,85 +320,119 @@ int main(int argc, char** argv)
     center.y = btop + round(length_row / 2.0) -1;
     cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
     printpoint(affineImg, center);
-    /*find the blocks contains the valid information */
 
-    /*
+
+
+    /* find a pattern */
     int irow;
     int offset[23] = {0}; // the value 20 is not fixed
 
     for(irow=0; irow<23; irow++)
     {
-        offset[irow] = 15;
+        offset[irow] = length_row+2;
     }
-
-    Point tmpCenter = Point(center.x, center.y-offset[22]);  // initial value is the neighbor of the center
-    for(irow=22; irow>=0; irow--)
+    cout<<"offset="<<length_row<<endl;
+    Point tmpCenter;  // initial value is the neighbor of the center
+    //printpoint(affineImg, tmpCenter);
+    for(irow=0; irow<23; irow++)
     {
-        s_block tmpPt[3];
+        if(irow != 0)
+        {
+            offset[irow] =  offset[irow] + offset[irow-1];
+        }
+        tmpCenter = Point(center.x, center.y-offset[irow]);
+        //s_block tmpPt[3];
         bool bflag = true;
         int j=0;
         //tmpPt[0] stands for middle line, tmpPt[1] stands for top line, tmpPt[2] stands for bottom line
-        int tmpoffset[3] = {0, -1, 1};
-        for(j=0; j<3; j++)
+        int tmpoffset[5] = {0, -2, 2, -1, 1};
+        for(j=0; j<5; j++)
         {
-            tmpPt[j].r = MpixelR(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
-            tmpPt[j].g = MpixelG(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
-            tmpPt[j].b = MpixelB(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
-            bool br = (tmpPt[j].r >= 180);
-            bool bg = (tmpPt[j].g >= 180);
-            bool bb = (tmpPt[j].b >= 180);
+            //tmpPt[j].r = MpixelR(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
+            //tmpPt[j].g = MpixelG(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
+            //tmpPt[j].b = MpixelB(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
+            //bool br = (tmpPt[j].r >= 180);
+            //bool bg = (tmpPt[j].g >= 180);
+            //bool bb = (tmpPt[j].b >= 180);
 
 
-            if((br == b_colors[irow].r && bg == b_colors[irow].g && bb == b_colors[irow].b))
+            bool br = MpixelR(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
+            bool bg = MpixelG(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
+            bool bb = MpixelB(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
+
+
+            //if((br == b_colors[irow].r && bg == b_colors[irow].g && bb == b_colors[irow].b))
+            //{
+            //    offset[irow] = offset[irow] + length_row/2;
+            //    break;
+            //}
+
+            if(!(br == b_colors[22-irow].r && bg == b_colors[22-irow].g && bb == b_colors[22-irow].b))
             {
-                offset[irow] = offset[irow] + 15;
-                break;
-            }
-            if((br == b_colors[irow-1].r && bg == b_colors[irow-1].g && bb == b_colors[irow-1].b))
-            {
+                cout<<"irow="<<irow<<", j="<<j<<endl;
 
-                if(j == 1 && !bflag)
+                if(j == 3 && !bflag)
                 {
-                    offset[irow-1] = offset[irow] - 15;
+                    offset[irow] = offset[irow] - length_row/2;
                     break;
                 }
-                else if(j == 2 && !bflag)
+                else if(j == 4 && !bflag)
                 {
-                    offset[irow-1] = offset[irow] + 15;
+                    offset[irow] = offset[irow] + length_row/2;
                     break;
                 }
+                else if(j == 1)
+                {
+                    offset[irow] = offset[irow] - length_row*3/4;
+                    cout<<"!!!"<<endl;
+                    break;
+                }
+                else if(j == 2 )
+                {
+                    offset[irow] = offset[irow] + length_row*3/4;
+                    cout<<"!!!"<<endl;
+                    break;
+                }
+
                 else
                 {
-                    offset[irow-1] = offset[irow-1] + offset[irow];
                     bflag = false;
                 }
             }
         }
 
-        tmpCenter = Point(center.x, center.y-offset[irow-1]);
-
-        MpixelR(affineImg, tmpCenter.x, tmpCenter.y) = 0;
-        MpixelG(affineImg, tmpCenter.x, tmpCenter.y) = 0;
-        MpixelB(affineImg, tmpCenter.x, tmpCenter.y) = 0;
-
+        //tmpCenter = Point(center.x, center.y-offset[irow]);
+        printpoint(affineImg, Point(center.x, center.y-offset[irow]));
 
     }
-
     int loop=0;
     for(loop=0; loop<24; loop++)
     {
         cout<<"row["<<loop<<"]="<<offset[loop]<<endl;
     }
+    /* find the blocks contains the valid information  */
+
+    /*
+    numofblockinrow
+    for(irow = 0; irow<23; irow++)
+    {
+        int icol;
+        for(icol=numofblockinrow[irow]-1; icol>0; icol--)
+        {
+
+        }
+    }
+
 
 
     for(irow=0; irow<23; irow++)
     {
 
     }
+
     */
 
-
-
+    cout<<"r="<<circles[0][2]/23<<endl;
     //namedWindow("Before Rotation", WINDOW_NORMAL );
     //imshow("Before Rotation", colorImg);
     namedWindow("After Rotation", WINDOW_AUTOSIZE);
