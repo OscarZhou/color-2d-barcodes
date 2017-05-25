@@ -66,6 +66,7 @@ static int numofblockinrow[23] = {4, 8, 10, 12, 13,
                                 23, 23, 23};
 
 int getCircle(Mat colorImg, Vec3i& ccl);
+int getAngle(Mat colorImg);
 char decode(Mat affineImg, Point pt1, Point pt2);
 
 
@@ -95,7 +96,7 @@ int main(int argc, char** argv)
         exit(0);
     }
 
-
+    /*  find a circle */
     Vec3i biggest_circle;
     int ret = getCircle(colorImg, biggest_circle);
     if(ret < 0)
@@ -109,42 +110,8 @@ int main(int argc, char** argv)
     center.y = biggest_circle[1];
     int radius = biggest_circle[2];
 
-
-
-    //float radius = circles[circle_index][2];
-    cout<<"chosen radius = "<<radius<<endl;
-    circle(colorImg, center, radius, Scalar(0, 0, 255), 5, 8);
-
-    namedWindow("circle", WINDOW_AUTOSIZE);
-    imshow("circle", colorImg);
-    /* find a line */
-    Mat srcimgforline, dstimageforline, colorimgforline;
-    srcimgforline = colorImg.clone();
-
-    Canny( srcimgforline, dstimageforline, 50, 200, 3 );
-    cvtColor( dstimageforline, colorimgforline, CV_GRAY2BGR );
-
-    vector<Vec4i> lines1;
-    HoughLinesP( dstimageforline, lines1, 1, CV_PI/180, 100, 200, 100 );
-
-    cout<<"lines.size()="<<lines1.size()<<endl;
-    float angle=0;
-    for( size_t i = 0; i < lines1.size(); i++ )
-    {
-        float x = lines1[i][2] - lines1[i][0];
-        float y = lines1[i][3] - lines1[i][1];
-        angle = round(atan2(y, x) * 180 / CV_PI);
-        //line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
-        //    Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
-        break;///
-        //cout<<"angle["<<i<<"]="<<angle<<endl;
-        //line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
-        //    Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
-
-    }
-    namedWindow("line", WINDOW_AUTOSIZE);
-    imshow("line", colorimgforline);
-
+    /* get the angle */
+    float angle= getAngle(colorImg);
 
 
     /* rotate the circle according to the theta */
@@ -537,7 +504,8 @@ int main(int argc, char** argv)
 *
 * Function Description: get a circle
 * Parameter Description:
-* imgOri : input image with salt and pepper
+* * coloImg : input image
+* * ccl: output biggest circle
 *
 *************************************************************************/
 int getCircle(Mat colorImg, Vec3i& ccl)
@@ -569,6 +537,38 @@ int getCircle(Mat colorImg, Vec3i& ccl)
     }
     ccl = circles[circle_index];
     return 1;
+}
+
+
+/************************************************************************
+*
+* Function Description: get the aligned angle
+* Parameter Description:
+* * coloImg : input image
+* * ccl: output biggest circle
+*
+*************************************************************************/
+int getAngle(Mat colorImg)
+{
+    float angle = 0;
+    Mat srcimgforline, dstimageforline, colorimgforline;
+    srcimgforline = colorImg.clone();
+
+    Canny( srcimgforline, dstimageforline, 50, 200, 3 );
+    cvtColor( dstimageforline, colorimgforline, CV_GRAY2BGR );
+
+    vector<Vec4i> lines;
+    HoughLinesP( dstimageforline, lines, 1, CV_PI/180, 100, 200, 100 );
+    for( size_t i = 0; i < lines.size(); i++ )
+    {
+        float x = lines[i][2] - lines[i][0];
+        float y = lines[i][3] - lines[i][1];
+        angle = round(atan2(y, x) * 180 / CV_PI);
+        //line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
+        //    Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
+        break;
+    }
+    return angle;
 }
 
 char decode(Mat affineImg, Point pt1, Point pt2)
