@@ -34,9 +34,6 @@ struct s_color
     bool b;
 };
 
-/*                       black      red       green      blue       white        cyan         magenta     yellow*/
-//static s_block colors[8]={{0,0,0}, {180,0,0}, {0,180,0},{0,0,180},{180,180,180},{0,180,180},{180,0,180},{180,180,0}};
-
 static s_color b_colors[24] = {{false, false, false},
                         {true, true, true},
                         {false, false, true},
@@ -68,6 +65,7 @@ static int numofblockinrow[23] = {4, 8, 10, 12, 13,
                                 22, 22, 22, 22, 23,
                                 23, 23, 23};
 
+int getCircle(Mat colorImg, Vec3i& ccl);
 char decode(Mat affineImg, Point pt1, Point pt2);
 
 
@@ -89,110 +87,30 @@ int main(int argc, char** argv)
         exit(0);
     }
 
-    /*  get a center of a circle */
+    /*  read an image */
     Mat colorImg = imread(argv[1], 1);
     if( colorImg.empty() )
     {
-        printf("cannot open the image \n");
+        printf(" fail to read image \n");
         exit(0);
     }
 
-    //Size size(1000,1000);//the dst image size,e.g.100x100
-    //Mat dst;//dst image
-    //Mat src;//src image
-    //resize(colorImg,dst,size);//resize image
 
-    //namedWindow("resize", WINDOW_AUTOSIZE);
-    //imshow("resize", dst);
-
-
-    Mat greyImg;
-    cvtColor(colorImg, greyImg, CV_RGB2GRAY);
-
-    medianBlur(greyImg, greyImg, 7);
-
-    //namedWindow("Median", WINDOW_AUTOSIZE  );
-    //imshow("Median", greyImg);
-
-    GaussianBlur(greyImg, greyImg, cv::Size(3, 3), 3, 3); // this function is very important
-    //namedWindow("GaussianBlur", WINDOW_AUTOSIZE  );
-    //imshow("GaussianBlur", greyImg);
-
-    vector<Vec3f> circles;
-    //cout<<"greyImg.rows/8="<<greyImg.rows/5<<endl;
-    HoughCircles(greyImg, circles, CV_HOUGH_GRADIENT, 1, greyImg.rows/8, 200, 100, greyImg.rows/8, 0);
-    //cout<<"circles.size()="<<circles.size()<<endl;
-
-
-
-
-    if(circles.size() < 1)
+    Vec3i biggest_circle;
+    int ret = getCircle(colorImg, biggest_circle);
+    if(ret < 0)
     {
         cout<<"can't recognize the circle !!!!!"<<endl;
         exit(0);
     }
-    else if(circles.size() > 1)
-    {
-        vector<int > ptx, pty;
-        for( size_t i =0; i< circles.size(); i++)
-        {
-            Vec3i c = circles[i];
-            ptx.push_back(c[0]);
-            pty.push_back(c[1]);
 
-        }
-
-        //int sumx = accumulate(ptx.begin(), ptx.end(), 0);
-        //int sumy = accumulate(pty.begin(), pty.end(), 0);
-        //circle(colorImg, Point(sumx/ptx.size(), sumy/pty.size()), c[2], Scalar(0, 0, 255), 5, 8);
-        /* paint the certer of the circle in order to observe the result of detection more obviously */
-        /*
-        int j = 0;
-        for(j = 0; j< 5; j++)
-        {
-            MpixelR(colorImg, c[0], c[1]-j) = 0;
-            MpixelG(colorImg, c[0], c[1]-j) = 0;
-            MpixelB(colorImg, c[0], c[1]-j) = 0;
-
-            MpixelR(colorImg, c[0]-j, c[1]) = 0;
-            MpixelG(colorImg, c[0]-j, c[1]) = 0;
-            MpixelB(colorImg, c[0]-j, c[1]) = 0;
-
-            MpixelR(colorImg, c[0], c[1]+j) = 0;
-            MpixelG(colorImg, c[0], c[1]+j) = 0;
-            MpixelB(colorImg, c[0], c[1]+j) = 0;
-
-            MpixelR(colorImg, c[0]+j, c[1]) = 0;
-            MpixelG(colorImg, c[0]+j, c[1]) = 0;
-            MpixelB(colorImg, c[0]+j, c[1]) = 0;
-        }
-        */
-    }
-
-    int circle_index = 0;
-    int radius = 0;
-    for( size_t i =0; i< circles.size(); i++)
-    {
-        Vec3i c = circles[i];
-        if(i == 0)
-        {
-            circle_index = i;
-            radius = c[2];
-
-        }
-        if(c[2]> radius)
-        {
-            cout<<"111"<<endl;
-            circle_index = i;
-            radius = c[2];
-        }
-        cout<<"-["<<i<<"]--radius="<<c[2]<<endl;
-        //circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
-
-    }
     Point center;
-    center.x = circles[circle_index][0];
-    center.y = circles[circle_index][1];
+    center.x = biggest_circle[0];
+    center.y = biggest_circle[1];
+    int radius = biggest_circle[2];
+
+
+
     //float radius = circles[circle_index][2];
     cout<<"chosen radius = "<<radius<<endl;
     circle(colorImg, center, radius, Scalar(0, 0, 255), 5, 8);
@@ -298,8 +216,8 @@ int main(int argc, char** argv)
 
     /* align the center of the circle */
     // according to the radius to determine the times of for loop
-    int min_col = center.x-round(circles[0][2]/23), max_col = center.x+round(circles[0][2]/23);//center.x-30;
-    int min_row = center.y-round(circles[0][2]/23), max_row = center.y+round(circles[0][2]/23);//center.y-30;
+    int min_col = center.x-round(radius/23), max_col = center.x+round(radius/23);//center.x-30;
+    int min_row = center.y-round(radius/23), max_row = center.y+round(radius/23);//center.y-30;
 
     int k, bleft=0, btop=0;
     int length_row = 0;
@@ -591,7 +509,7 @@ int main(int argc, char** argv)
     }
 
 
-    cout<<"r="<<circles[0][2]/23<<endl;
+    cout<<"r="<<radius/23<<endl;
     //namedWindow("Before Rotation", WINDOW_NORMAL );
     //imshow("Before Rotation", colorImg);
     //namedWindow("After Rotation", WINDOW_AUTOSIZE);
@@ -613,6 +531,44 @@ int main(int argc, char** argv)
 
 
     return 0;
+}
+
+/************************************************************************
+*
+* Function Description: get a circle
+* Parameter Description:
+* imgOri : input image with salt and pepper
+*
+*************************************************************************/
+int getCircle(Mat colorImg, Vec3i& ccl)
+{
+    Mat greyImg;
+    cvtColor(colorImg, greyImg, CV_RGB2GRAY);
+
+    medianBlur(greyImg, greyImg, 7);
+    GaussianBlur(greyImg, greyImg, cv::Size(3, 3), 3, 3);
+
+    vector<Vec3f> circles;
+    HoughCircles(greyImg, circles, CV_HOUGH_GRADIENT, 1, greyImg.rows/8, 200, 100, greyImg.rows/8, 0);
+    if(circles.size() < 1)
+    {
+        return -1;
+    }
+    int circle_index = 0;
+    int radius = 0;
+    for( size_t i =0; i< circles.size(); i++)
+    {
+        Vec3i c = circles[i];
+        if(i == 0 || c[2]>radius)
+        {
+            circle_index = i;
+            radius = c[2];
+
+        }
+        //circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
+    }
+    ccl = circles[circle_index];
+    return 1;
 }
 
 char decode(Mat affineImg, Point pt1, Point pt2)
