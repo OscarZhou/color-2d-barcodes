@@ -17,7 +17,7 @@ using namespace cv;
 #define MpixelR(image, x, y) ((uchar *)(((image).data)+(y)*((image).step)))[(x)*((image).channels())+2]
 
 
-#define MASK 1<<5 | 1<<4 | 1<<3 | 1<<2 | 1<<1 | 1<<0
+#define MASK (1<<5 | 1<<4 | 1<<3 | 1<<2 | 1<<1 | 1<<0)
 
 
 struct s_block
@@ -62,7 +62,11 @@ static s_color b_colors[24] = {{false, false, false},
                         {true, false, false},
                         {true, true, true}};
 
-static int numofblockinrow[24] = {4, 8, 10, 12, 13, 15, 16, 17, 18, 18, 19, 20, 20, 21, 21, 22, 22, 22, 22, 23, 23, 23, 23, 23};
+static int numofblockinrow[23] = {4, 8, 10, 12, 13,
+                                15, 17, 17, 18, 18,
+                                19, 20, 20, 21, 21,
+                                22, 22, 22, 22, 23,
+                                23, 23, 23};
 
 char decode(Mat affineImg, Point pt1, Point pt2);
 
@@ -70,9 +74,11 @@ char decode(Mat affineImg, Point pt1, Point pt2);
 void printpoint(Mat colorImg, Point pt)
 {
 
-    MpixelR(colorImg, pt.x, pt.y) = 0;
+    MpixelR(colorImg, pt.x, pt.y) = 255;
     MpixelG(colorImg, pt.x, pt.y) = 0;
     MpixelB(colorImg, pt.x, pt.y) = 0;
+
+    //cout<<"pt=("<<pt.x<<", "<<pt.y<<")"<<endl;
 }
 
 int main(int argc, char** argv)
@@ -336,6 +342,7 @@ int main(int argc, char** argv)
     //printpoint(affineImg, tmpCenter);
     for(irow=0; irow<23; irow++)
     {
+        //cout<<"~~~~@@@ irow="<<irow<<endl;
         if(irow != 0)
         {
             offset[irow] =  offset[irow] + offset[irow-1];
@@ -402,35 +409,97 @@ int main(int argc, char** argv)
         }
 
         //tmpCenter = Point(center.x, center.y-offset[irow]);
-        printpoint(affineImg, Point(center.x, center.y-offset[irow]));
+        //printpoint(affineImg, Point(center.x, center.y-offset[irow]));
 
     }
+    /*
     int loop=0;
     for(loop=0; loop<24; loop++)
     {
         cout<<"row["<<loop<<"]="<<offset[loop]<<endl;
     }
+    */
+
+
+
     /* find the blocks contains the valid information  */
 
-    /*
-    numofblockinrow
-    for(irow = 0; irow<23; irow++)
+
+    vector<char> text;
+    for(irow=22; irow>=0; irow--)
     {
+        cout<<"~~irow="<<irow<<endl;
         int icol;
-        for(icol=numofblockinrow[irow]-1; icol>0; icol--)
+        Point pt1, pt2;
+        cout<<"~~numofblockinrow[22-irow]="<<numofblockinrow[22-irow]<<endl;
+        //break;
+        int counter = numofblockinrow[22-irow] * 2;
+        icol = numofblockinrow[22-irow]-1;
+        bool left_flag = true;
+        do
         {
+            if(icol==0)
+            {
+                if(numofblockinrow[22-irow]%2==1)
+                {
+                    pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
+                    pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
+                    text.push_back(decode(affineImg, pt1, pt2));
+                    //printpoint(affineImg, pt1);
+                    //printpoint(affineImg, pt2);
+                    counter -= 2;
+                    icol += 2;
+                }
+                else
+                {
+                    icol = 1;
+                    //left_flag = false;
+                    //cout<<"1 icol="<<icol<<endl;
+                    //continue;
+                }
+                left_flag = false;
+                //icol += 2;
+                //cout<<"2 icol="<<icol<<endl;
+                continue;
+            }
+            if(left_flag)
+            {
+                pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
+                pt2 = Point(center.x-offset[icol-1], center.y-offset[irow]);
+                text.push_back(decode(affineImg, pt1, pt2));
+                //printpoint(affineImg, pt1);
+                //printpoint(affineImg, pt2);
+                counter -= 2;
+                //cout<<"3 icol="<<icol<<endl;
+                if((numofblockinrow[22-irow]%2==0) && icol ==1)
+                {
+                    icol = 0;
+                    continue;
+                }
+                icol -= 2;
 
-        }
+            }
+            else
+            {
+                pt1 = Point(center.x+offset[icol-1], center.y-offset[irow]);
+                pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
+                text.push_back(decode(affineImg, pt1, pt2));
+                //printpoint(affineImg, pt1);
+                //printpoint(affineImg, pt2);
+                icol += 2;
+                counter -= 2;
+                //cout<<"4 icol="<<icol<<endl;
+            }
+
+        }while(counter);
     }
 
 
-
-    for(irow=0; irow<23; irow++)
+    for(std::vector<char>::iterator it=text.begin(); it!=text.end(); it++)
     {
-
+        cout<<*it;
     }
 
-    */
 
     cout<<"r="<<circles[0][2]/23<<endl;
     //namedWindow("Before Rotation", WINDOW_NORMAL );
@@ -470,6 +539,7 @@ char decode(Mat affineImg, Point pt1, Point pt2)
     b2.g = MpixelG(affineImg, pt2.x, pt2.y)>180 ?1:0;
     b2.b = MpixelB(affineImg, pt2.x, pt2.y)>180 ?1:0;
     cout<<b1.r<<", "<<b1.g<<", "<<b1.b<<endl;
+    cout<<b2.r<<", "<<b2.g<<", "<<b2.b<<endl;
 
     int bb1 = (b1.r<<5 | b1.g << 4| b1.b<<3) & MASK;
     int bb2 = (b2.r<<2 | b2.g << 1| b2.b<<0) & MASK;
