@@ -110,9 +110,9 @@ int main(int argc, char** argv)
     //imshow("GaussianBlur", greyImg);
 
     vector<Vec3f> circles;
-    cout<<"greyImg.rows/8="<<greyImg.rows/5<<endl;
+    //cout<<"greyImg.rows/8="<<greyImg.rows/5<<endl;
     HoughCircles(greyImg, circles, CV_HOUGH_GRADIENT, 1, greyImg.rows/8, 200, 100, 350, 0);
-    cout<<"circles.size()="<<circles.size()<<endl;
+    //cout<<"circles.size()="<<circles.size()<<endl;
     if(circles.size() < 1)
     {
         cout<<"can't recognize the circle !!!!!"<<endl;
@@ -129,6 +129,9 @@ int main(int argc, char** argv)
 
         }
 
+        //int sumx = accumulate(ptx.begin(), ptx.end(), 0);
+        //int sumy = accumulate(pty.begin(), pty.end(), 0);
+        //circle(colorImg, Point(sumx/ptx.size(), sumy/pty.size()), c[2], Scalar(0, 0, 255), 5, 8);
         /* paint the certer of the circle in order to observe the result of detection more obviously */
         /*
         int j = 0;
@@ -159,7 +162,7 @@ int main(int argc, char** argv)
         circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
         /* paint the certer of the circle in order to observe the result of detection more obviously */
         int j = 0;
-
+        /*
         for(j = 0; j< 5; j++)
         {
             MpixelR(colorImg, c[0], c[1]-j) = 0;
@@ -178,37 +181,71 @@ int main(int argc, char** argv)
             MpixelG(colorImg, c[0]+j, c[1]) = 0;
             MpixelB(colorImg, c[0]+j, c[1]) = 0;
         }
-
+        */
     }
 
+    /* find a line */
+    Mat srcimgforline, dstimageforline, colorimgforline;
+    srcimgforline = colorImg.clone();
 
-    /* determine whether the circle is upright firstly */
+    Canny( srcimgforline, dstimageforline, 50, 200, 3 );
+    cvtColor( dstimageforline, colorimgforline, CV_GRAY2BGR );
+
+    vector<Vec4i> lines1;
+    HoughLinesP( dstimageforline, lines1, 1, CV_PI/180, 100, 200, 100 );
+
+    cout<<"lines.size()="<<lines1.size()<<endl;
+    float angle=0;
+    for( size_t i = 0; i < lines1.size(); i++ )
+    {
+        float x = lines1[i][2] - lines1[i][0];
+        float y = lines1[i][3] - lines1[i][1];
+        angle = round(atan2(y, x) * 180 / CV_PI);
+        //line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
+        //    Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
+        break;///
+        //cout<<"angle["<<i<<"]="<<angle<<endl;
+        //line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
+        //    Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
+
+    }
+    namedWindow("line", WINDOW_AUTOSIZE);
+    imshow("line", colorimgforline);
+
+
+
+    /* rotate the circle according to the theta */
     Point center;
     center.x = circles[0][0];
     center.y = circles[0][1];
-    float angle;
-    Mat affineImg = colorImg.clone();
+    cout<<"center = ("<<center.x<<", "<<center.y<<"), the first angle = "<<angle<<endl;
+    Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
+    Mat affineImg;
+    warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
+    namedWindow("1rotat", WINDOW_AUTOSIZE);
+    imshow("1rotat", affineImg);
+
     /* detemine whether the circle is upright */
     s_color col_top, col_right, col_bottom, col_left;
     col_top.r = MpixelR(affineImg, center.x, center.y-20)>180 ?true:false;
     col_top.g = MpixelG(affineImg, center.x, center.y-20)>180 ?true:false;
     col_top.b = MpixelB(affineImg, center.x, center.y-20)>180 ?true:false;
-    cout<<"top is "<<col_top.r<<", "<< col_top.g <<", "<<col_top.b<<endl;
+    //cout<<"top is "<<col_top.r<<", "<< col_top.g <<", "<<col_top.b<<endl;
 
     col_right.r = MpixelR(affineImg, center.x+20, center.y)>180 ?true:false;
     col_right.g = MpixelG(affineImg, center.x+20, center.y)>180 ?true:false;
     col_right.b = MpixelB(affineImg, center.x+20, center.y)>180 ?true:false;
-    cout<<"right is "<<col_right.r<<", "<< col_right.g <<", "<<col_right.b<<endl;
+    //cout<<"right is "<<col_right.r<<", "<< col_right.g <<", "<<col_right.b<<endl;
 
     col_bottom.r = MpixelR(affineImg, center.x, center.y+20)>180 ?true:false;
     col_bottom.g = MpixelG(affineImg, center.x, center.y+20)>180 ?true:false;
     col_bottom.b = MpixelB(affineImg, center.x, center.y+20)>180 ?true:false;
-    cout<<"bottom is "<<col_bottom.r<<", "<< col_bottom.g <<", "<<col_bottom.b<<endl;
+    //cout<<"bottom is "<<col_bottom.r<<", "<< col_bottom.g <<", "<<col_bottom.b<<endl;
 
     col_left.r = MpixelR(affineImg, center.x-20, center.y)>180 ?true:false;
     col_left.g = MpixelG(affineImg, center.x-20, center.y)>180 ?true:false;
     col_left.b = MpixelB(affineImg, center.x-20, center.y)>180 ?true:false;
-    cout<<"left is "<<col_left.r<<", "<< col_left.g <<", "<<col_left.b<<endl;
+    //cout<<"left is "<<col_left.r<<", "<< col_left.g <<", "<<col_left.b<<endl;
 
 
     bool bTop = (col_top.r && !col_top.g && !col_top.b);
@@ -217,104 +254,33 @@ int main(int argc, char** argv)
     bool bLeft = (col_left.r && !col_left.g && !col_left.b);
 
     cout<<"------------->"<<bTop<<", "<<bRight<<", "<<bBottom<<", "<<bLeft<<endl;
-    if( bTop && bRight && bBottom && bLeft)
+    int symbol = 1;
+    if(angle < 0) symbol = -1;
+    if( bTop && !bRight && bBottom && !bLeft)
     {
-        angle = 0;
+        angle = 270 * symbol;
+    }
+    else if( !bTop && !bRight && !bBottom && !bLeft )
+    {
+        angle = 180 * symbol;
+    }
+    else if( !bTop && bRight && !bBottom && bLeft )
+    {
+        angle = 90 * symbol;
     }
     else
     {
-        /* find a line */
-        Mat srcimgforline, dstimageforline, colorimgforline;
-        srcimgforline = colorImg.clone();
-
-        Canny( srcimgforline, dstimageforline, 50, 200, 3 );
-        cvtColor( dstimageforline, colorimgforline, CV_GRAY2BGR );
-
-        vector<Vec4i> lines1;
-        HoughLinesP( dstimageforline, lines1, 1, CV_PI/180, 100, 200, 10 );
-
-        cout<<"lines.size()="<<lines1.size()<<endl;
-
-        for( size_t i = 0; i < lines1.size(); i++ )
-        {
-            float x = lines1[i][2] - lines1[i][0];
-            float y = lines1[i][3] - lines1[i][1];
-            angle = round(atan2(y, x) * 180 / CV_PI);
-            cout<<"angle["<<i<<"] = "<<angle<<endl;
-            line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
-                Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
-
-        }
-        namedWindow("line image", WINDOW_AUTOSIZE );
-        imshow("line image", colorimgforline);
-        /* rotate the circle according to the theta */
-
-        cout<<"center = ("<<center.x<<", "<<center.y<<"), angle="<<angle<<endl;
-        Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
-        Mat affineImg;
-        warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
-        namedWindow("Before Rotating", WINDOW_AUTOSIZE );
-        imshow("Before Rotating", affineImg);
-
-
-        /* detemine whether the circle is upright */
-        s_color col_top, col_right, col_bottom, col_left;
-        col_top.r = MpixelR(affineImg, center.x, center.y-20)>180 ?true:false;
-        col_top.g = MpixelG(affineImg, center.x, center.y-20)>180 ?true:false;
-        col_top.b = MpixelB(affineImg, center.x, center.y-20)>180 ?true:false;
-        cout<<"top is "<<col_top.r<<", "<< col_top.g <<", "<<col_top.b<<endl;
-
-        col_right.r = MpixelR(affineImg, center.x+20, center.y)>180 ?true:false;
-        col_right.g = MpixelG(affineImg, center.x+20, center.y)>180 ?true:false;
-        col_right.b = MpixelB(affineImg, center.x+20, center.y)>180 ?true:false;
-        cout<<"right is "<<col_right.r<<", "<< col_right.g <<", "<<col_right.b<<endl;
-
-        col_bottom.r = MpixelR(affineImg, center.x, center.y+20)>180 ?true:false;
-        col_bottom.g = MpixelG(affineImg, center.x, center.y+20)>180 ?true:false;
-        col_bottom.b = MpixelB(affineImg, center.x, center.y+20)>180 ?true:false;
-        cout<<"bottom is "<<col_bottom.r<<", "<< col_bottom.g <<", "<<col_bottom.b<<endl;
-
-        col_left.r = MpixelR(affineImg, center.x-20, center.y)>180 ?true:false;
-        col_left.g = MpixelG(affineImg, center.x-20, center.y)>180 ?true:false;
-        col_left.b = MpixelB(affineImg, center.x-20, center.y)>180 ?true:false;
-        cout<<"left is "<<col_left.r<<", "<< col_left.g <<", "<<col_left.b<<endl;
-
-
-        bool bTop = (col_top.r && !col_top.g && !col_top.b);
-        bool bRight = (col_right.r && !col_right.g && col_right.b);
-        bool bBottom = (col_bottom.r && !col_bottom.g && col_bottom.b);
-        bool bLeft = (col_left.r && !col_left.g && !col_left.b);
-
-        cout<<"------------->"<<bTop<<", "<<bRight<<", "<<bBottom<<", "<<bLeft<<endl;
-        if( bTop && !bRight && bBottom && !bLeft)
-        {
-            angle = 270;
-        }
-        else if( !bTop && !bRight && !bBottom && !bLeft )
-        {
-            angle = 180;
-        }
-        else if( !bTop && bRight && !bBottom && bLeft )
-        {
-            angle = 90;
-        }
-        else
-        {
-            angle = 0;
-        }
-
-        cout<<"the angle of the rotation is "<<angle<<endl;
-        rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
-        warpAffine(affineImg, affineImg, rotmatrix, colorImg.size());
-
-        cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
-        namedWindow("After ", WINDOW_AUTOSIZE);
-        imshow("After ", affineImg);
+        angle = 0 * symbol;
     }
 
-    namedWindow("After Rotating", WINDOW_AUTOSIZE);
-    imshow("After Rotating", colorImg);
 
+    cout<<"the second angle of the rotation is "<<angle<<endl;
+    rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
+    warpAffine(affineImg, affineImg, rotmatrix, colorImg.size());
+
+    //cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
+    namedWindow("2rotat", WINDOW_AUTOSIZE);
+    imshow("2rotat", affineImg);
 
 
     /* align the center of the circle */
@@ -362,7 +328,7 @@ int main(int argc, char** argv)
         else continue;
 
     }
-    cout<<"boundary position=("<<bleft<<", "<<btop<<")"<<endl;
+    //cout<<"boundary position=("<<bleft<<", "<<btop<<")"<<endl;
     Point pt3 = Point(bleft, center.y);
     Point pt4 = Point(center.x, btop);
     printpoint(affineImg, pt3);
@@ -371,14 +337,14 @@ int main(int argc, char** argv)
 
     center.x = bleft + round(length_col / 2.0) -1;
     center.y = btop + round(length_row / 2.0) -1;
-    cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
+    //cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
     printpoint(affineImg, center);
+
 
 
     /* find a pattern */
     int irow;
     int offset[23] = {0}; // the value 20 is not fixed
-
 
     for(irow=0; irow<23; irow++)
     {
@@ -456,9 +422,17 @@ int main(int argc, char** argv)
         }
 
         //tmpCenter = Point(center.x, center.y-offset[irow]);
-        printpoint(affineImg, Point(center.x, center.y-offset[irow]));
+        //printpoint(affineImg, Point(center.x, center.y-offset[irow]));
 
     }
+    /*
+    int loop=0;
+    for(loop=0; loop<24; loop++)
+    {
+        cout<<"row["<<loop<<"]="<<offset[loop]<<endl;
+    }
+    */
+
 
 
     /* find the blocks contains the valid information  */
@@ -607,8 +581,8 @@ int main(int argc, char** argv)
     cout<<"r="<<circles[0][2]/23<<endl;
     //namedWindow("Before Rotation", WINDOW_NORMAL );
     //imshow("Before Rotation", colorImg);
-    namedWindow("After Rotation", WINDOW_AUTOSIZE);
-    imshow("After Rotation", affineImg);
+    //namedWindow("After Rotation", WINDOW_AUTOSIZE);
+    //imshow("After Rotation", affineImg);
 
     //cvNamedWindow("Source", WINDOW_AUTOSIZE   );
     //cvShowImage("Source", srcimg);
@@ -647,8 +621,8 @@ char decode(Mat affineImg, Point pt1, Point pt2)
 
     char x = encodingarray[bb1 | bb2];
 
-    //printpoint(affineImg, pt1);
-    //printpoint(affineImg, pt2);
+    printpoint(affineImg, pt1);
+    printpoint(affineImg, pt2);
 
     return encodingarray[bb1 | bb2];
 }
