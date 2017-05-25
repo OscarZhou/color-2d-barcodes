@@ -97,6 +97,15 @@ int main(int argc, char** argv)
         exit(0);
     }
 
+    //Size size(1000,1000);//the dst image size,e.g.100x100
+    //Mat dst;//dst image
+    //Mat src;//src image
+    //resize(colorImg,dst,size);//resize image
+
+    //namedWindow("resize", WINDOW_AUTOSIZE);
+    //imshow("resize", dst);
+
+
     Mat greyImg;
     cvtColor(colorImg, greyImg, CV_RGB2GRAY);
 
@@ -111,8 +120,12 @@ int main(int argc, char** argv)
 
     vector<Vec3f> circles;
     //cout<<"greyImg.rows/8="<<greyImg.rows/5<<endl;
-    HoughCircles(greyImg, circles, CV_HOUGH_GRADIENT, 1, greyImg.rows/8, 200, 100, 350, 0);
+    HoughCircles(greyImg, circles, CV_HOUGH_GRADIENT, 1, greyImg.rows/8, 200, 100, greyImg.rows/8, 0);
     //cout<<"circles.size()="<<circles.size()<<endl;
+
+
+
+
     if(circles.size() < 1)
     {
         cout<<"can't recognize the circle !!!!!"<<endl;
@@ -156,34 +169,36 @@ int main(int argc, char** argv)
         */
     }
 
+    int circle_index = 0;
+    int radius = 0;
     for( size_t i =0; i< circles.size(); i++)
     {
         Vec3i c = circles[i];
-        circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
-        /* paint the certer of the circle in order to observe the result of detection more obviously */
-        int j = 0;
-        /*
-        for(j = 0; j< 5; j++)
+        if(i == 0)
         {
-            MpixelR(colorImg, c[0], c[1]-j) = 0;
-            MpixelG(colorImg, c[0], c[1]-j) = 0;
-            MpixelB(colorImg, c[0], c[1]-j) = 0;
+            circle_index = i;
+            radius = c[2];
 
-            MpixelR(colorImg, c[0]-j, c[1]) = 0;
-            MpixelG(colorImg, c[0]-j, c[1]) = 0;
-            MpixelB(colorImg, c[0]-j, c[1]) = 0;
-
-            MpixelR(colorImg, c[0], c[1]+j) = 0;
-            MpixelG(colorImg, c[0], c[1]+j) = 0;
-            MpixelB(colorImg, c[0], c[1]+j) = 0;
-
-            MpixelR(colorImg, c[0]+j, c[1]) = 0;
-            MpixelG(colorImg, c[0]+j, c[1]) = 0;
-            MpixelB(colorImg, c[0]+j, c[1]) = 0;
         }
-        */
-    }
+        if(c[2]> radius)
+        {
+            cout<<"111"<<endl;
+            circle_index = i;
+            radius = c[2];
+        }
+        cout<<"-["<<i<<"]--radius="<<c[2]<<endl;
+        //circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
 
+    }
+    Point center;
+    center.x = circles[circle_index][0];
+    center.y = circles[circle_index][1];
+    //float radius = circles[circle_index][2];
+    cout<<"chosen radius = "<<radius<<endl;
+    circle(colorImg, center, radius, Scalar(0, 0, 255), 5, 8);
+
+    namedWindow("circle", WINDOW_AUTOSIZE);
+    imshow("circle", colorImg);
     /* find a line */
     Mat srcimgforline, dstimageforline, colorimgforline;
     srcimgforline = colorImg.clone();
@@ -215,9 +230,7 @@ int main(int argc, char** argv)
 
 
     /* rotate the circle according to the theta */
-    Point center;
-    center.x = circles[0][0];
-    center.y = circles[0][1];
+
     cout<<"center = ("<<center.x<<", "<<center.y<<"), the first angle = "<<angle<<endl;
     Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     Mat affineImg;
