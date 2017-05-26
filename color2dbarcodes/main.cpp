@@ -67,6 +67,7 @@ static int numofblockinrow[23] = {4, 8, 10, 12, 13,
 
 int getCircle(Mat colorImg, Vec3i& ccl);
 int getAngle(Mat colorImg);
+void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg);
 char decode(Mat affineImg, Point pt1, Point pt2);
 
 
@@ -111,15 +112,12 @@ int main(int argc, char** argv)
     int radius = biggest_circle[2];
 
     /* get the angle */
-    float angle= getAngle(colorImg);
-
+    int angle= getAngle(colorImg);
 
     /* rotate the circle according to the theta */
-
-    cout<<"center = ("<<center.x<<", "<<center.y<<"), the first angle = "<<angle<<endl;
-    Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     Mat affineImg;
-    warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
+    rotateCircle(colorImg, center, angle, affineImg);
+
     namedWindow("1rotat", WINDOW_AUTOSIZE);
     imshow("1rotat", affineImg);
 
@@ -173,7 +171,7 @@ int main(int argc, char** argv)
 
 
     cout<<"the second angle of the rotation is "<<angle<<endl;
-    rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
+    Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     warpAffine(affineImg, affineImg, rotmatrix, colorImg.size());
 
     //cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
@@ -545,7 +543,7 @@ int getCircle(Mat colorImg, Vec3i& ccl)
 * Function Description: get the aligned angle
 * Parameter Description:
 * * coloImg : input image
-* * ccl: output biggest circle
+* * return value: angle
 *
 *************************************************************************/
 int getAngle(Mat colorImg)
@@ -569,6 +567,20 @@ int getAngle(Mat colorImg)
         break;
     }
     return angle;
+}
+
+/************************************************************************
+*
+* Function Description: get the aligned angle
+* Parameter Description:
+* * coloImg : input image
+* * return value: angle
+*
+*************************************************************************/
+void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg)
+{
+    Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
+    warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
 }
 
 char decode(Mat affineImg, Point pt1, Point pt2)
