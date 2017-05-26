@@ -84,7 +84,7 @@ char decode(Mat affineImg, Point pt1, Point pt2);
 void printpoint(Mat colorImg, Point pt)
 {
 
-    MpixelR(colorImg, pt.x, pt.y) = 0;
+    MpixelR(colorImg, pt.x, pt.y) = 255;
     MpixelG(colorImg, pt.x, pt.y) = 0;
     MpixelB(colorImg, pt.x, pt.y) = 0;
 
@@ -115,6 +115,9 @@ int main(int argc, char** argv)
         cout<<"can't recognize the circle !!!!!"<<endl;
         exit(0);
     }
+
+    //circle(colorImg, Point(biggest_circle[0], biggest_circle[1]), biggest_circle[2], Scalar(0, 0, 255), 5, 8);
+
     namedWindow("original", WINDOW_AUTOSIZE );
     imshow("original", colorImg);
 
@@ -124,6 +127,8 @@ int main(int argc, char** argv)
     /* rotate the circle according to the theta */
     Mat affineImg;
     rotateCircle(colorImg, biggest_circle, angle, affineImg);
+
+
 
     namedWindow("first rotation", WINDOW_AUTOSIZE );
     imshow("first rotation", affineImg);
@@ -136,11 +141,10 @@ int main(int argc, char** argv)
     /* rotate circle in second time */
     rotateCircle(affineImg, biggest_circle, angle, affineImg);
 
+
     /* align the center of the circle */
     s_blockinfo blockinfo = {0 , 0};
     relocateCenterofCircle(affineImg, biggest_circle, blockinfo);
-
-
     printpoint(affineImg, Point(biggest_circle[0], biggest_circle[1]));
 
     /* find a pattern */
@@ -177,8 +181,8 @@ int getCircle(Mat colorImg, Vec3i& ccl)
     Mat greyImg;
     cvtColor(colorImg, greyImg, CV_RGB2GRAY);
 
-    medianBlur(greyImg, greyImg, 7);
-    GaussianBlur(greyImg, greyImg, cv::Size(3, 3), 3, 3);
+    //medianBlur(greyImg, greyImg, 7);
+    GaussianBlur(greyImg, greyImg, cv::Size(9, 9), 3, 3);
 
     vector<Vec3f> circles;
     HoughCircles(greyImg, circles, CV_HOUGH_GRADIENT, 1, greyImg.rows/8, 200, 100, greyImg.rows/8, 0);
@@ -197,9 +201,19 @@ int getCircle(Mat colorImg, Vec3i& ccl)
             radius = c[2];
 
         }
-        circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
+        //circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
     }
     ccl = circles[circle_index];
+    /*
+    for(int i=0; i<5 ; i++)
+    {
+        printpoint(colorImg, Point(ccl[0], ccl[1]-i));
+        printpoint(colorImg, Point(ccl[0]+i, ccl[1]));
+        printpoint(colorImg, Point(ccl[0], ccl[1]+i));
+        printpoint(colorImg, Point(ccl[0]-i, ccl[1]));
+
+    }
+    */
     return 1;
 }
 
@@ -249,7 +263,7 @@ int getAngle(Mat colorImg)
 void rotateCircle(Mat colorImg, Vec3i ccl, int angle, Mat& affineImg)
 {
     Point center = Point(ccl[0], ccl[1]);
-
+    cout<<"rotate cicle = "<<ccl[0]<<", "<<ccl[1]<<endl;
     Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
 }
@@ -275,27 +289,27 @@ int getUprightDownAngle(Mat affineImg, Vec3i ccl)
     col_top.r = MpixelR(affineImg, center.x, center.y-offset)>180 ?true:false;
     col_top.g = MpixelG(affineImg, center.x, center.y-offset)>180 ?true:false;
     col_top.b = MpixelB(affineImg, center.x, center.y-offset)>180 ?true:false;
-    printpoint(affineImg, Point(center.x, center.y-offset));
-    cout<<"top is "<<col_top.r<<", "<< col_top.g <<", "<<col_top.b<<endl;
+    //printpoint(affineImg, Point(center.x, center.y-offset));
+    //cout<<"top is "<<col_top.r<<", "<< col_top.g <<", "<<col_top.b<<endl;
 
 
     col_right.r = MpixelR(affineImg, center.x+offset, center.y)>180 ?true:false;
     col_right.g = MpixelG(affineImg, center.x+offset, center.y)>180 ?true:false;
     col_right.b = MpixelB(affineImg, center.x+offset, center.y)>180 ?true:false;
-    printpoint(affineImg, Point(center.x+offset, center.y));
-    cout<<"right is "<<col_right.r<<", "<< col_right.g <<", "<<col_right.b<<endl;
+    //printpoint(affineImg, Point(center.x+offset, center.y));
+    //cout<<"right is "<<col_right.r<<", "<< col_right.g <<", "<<col_right.b<<endl;
 
     col_bottom.r = MpixelR(affineImg, center.x, center.y+offset)>180 ?true:false;
     col_bottom.g = MpixelG(affineImg, center.x, center.y+offset)>180 ?true:false;
     col_bottom.b = MpixelB(affineImg, center.x, center.y+offset)>180 ?true:false;
-    printpoint(affineImg, Point(center.x, center.y+offset));
-    cout<<"bottom is "<<col_bottom.r<<", "<< col_bottom.g <<", "<<col_bottom.b<<endl;
+    //printpoint(affineImg, Point(center.x, center.y+offset));
+    //cout<<"bottom is "<<col_bottom.r<<", "<< col_bottom.g <<", "<<col_bottom.b<<endl;
 
     col_left.r = MpixelR(affineImg, center.x-offset, center.y)>180 ?true:false;
     col_left.g = MpixelG(affineImg, center.x-offset, center.y)>180 ?true:false;
     col_left.b = MpixelB(affineImg, center.x-offset, center.y)>180 ?true:false;
-    printpoint(affineImg, Point(center.x-offset, center.y));
-    cout<<"left is "<<col_left.r<<", "<< col_left.g <<", "<<col_left.b<<endl;
+    //printpoint(affineImg, Point(center.x-offset, center.y));
+    //cout<<"left is "<<col_left.r<<", "<< col_left.g <<", "<<col_left.b<<endl;
 
     //this is the correct pattern
     bool bTop = (col_top.r && !col_top.g && !col_top.b);
@@ -619,8 +633,8 @@ char decode(Mat affineImg, Point pt1, Point pt2)
 
     char x = encodingarray[bb1 | bb2];
 
-    printpoint(affineImg, pt1);
-    printpoint(affineImg, pt2);
+    //printpoint(affineImg, pt1);
+    //printpoint(affineImg, pt2);
 
     return encodingarray[bb1 | bb2];
 }
