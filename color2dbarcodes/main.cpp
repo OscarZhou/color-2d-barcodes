@@ -76,6 +76,7 @@ int getAngle(Mat colorImg);
 void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg);
 int getUprightDownAngle(Mat affineImg, Vec3i ccl);
 void relocateCenterofCircle(Mat affineImg, Vec3i& ccl, s_blockinfo& block);
+void findOffsetPattern(Mat affineImg, Vec3i ccl, int* offset, int length, s_blockinfo block);
 char decode(Mat affineImg, Point pt1, Point pt2);
 
 
@@ -147,98 +148,12 @@ int main(int argc, char** argv)
 
     int length_col = blockinfo.width;
     int length_row = blockinfo.height;
+
     /* find a pattern */
-    int irow;
-    int offset[23] = {0}; // the value 20 is not fixed
+    int offset[23] = {0};
+    findOffsetPattern(affineImg, biggest_circle, offset, 23, blockinfo);
 
-    for(irow=0; irow<23; irow++)
-    {
-        offset[irow] = length_row+2;
-    }
-    cout<<"offset="<<length_row<<endl;
-    Point tmpCenter;  // initial value is the neighbor of the center
-    //printpoint(affineImg, tmpCenter);
-    for(irow=0; irow<23; irow++)
-    {
-        //cout<<"~~~~@@@ irow="<<irow<<endl;
-        if(irow != 0)
-        {
-            offset[irow] =  offset[irow] + offset[irow-1];
-        }
-        tmpCenter = Point(center.x, center.y-offset[irow]);
-        //s_block tmpPt[3];
-        bool bflag = true;
-        int j=0;
-        //tmpPt[0] stands for middle line, tmpPt[1] stands for top line, tmpPt[2] stands for bottom line
-        int tmpoffset[5] = {0, -2, 2, -1, 1};
-        for(j=0; j<5; j++)
-        {
-            //tmpPt[j].r = MpixelR(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
-            //tmpPt[j].g = MpixelG(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
-            //tmpPt[j].b = MpixelB(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]);
-            //bool br = (tmpPt[j].r >= 180);
-            //bool bg = (tmpPt[j].g >= 180);
-            //bool bb = (tmpPt[j].b >= 180);
-
-
-            bool br = MpixelR(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
-            bool bg = MpixelG(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
-            bool bb = MpixelB(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
-
-
-            //if((br == b_colors[irow].r && bg == b_colors[irow].g && bb == b_colors[irow].b))
-            //{
-            //    offset[irow] = offset[irow] + length_row/2;
-            //    break;
-            //}
-
-            if(!(br == b_colors[22-irow].r && bg == b_colors[22-irow].g && bb == b_colors[22-irow].b))
-            {
-                //cout<<"irow="<<irow<<", j="<<j<<endl;
-
-                if(j == 3 && !bflag)
-                {
-                    offset[irow] = offset[irow] - length_row/2;
-                    break;
-                }
-                else if(j == 4 && !bflag)
-                {
-                    offset[irow] = offset[irow] + length_row/2;
-                    break;
-                }
-                else if(j == 1)
-                {
-                    offset[irow] = offset[irow] - length_row*3/4;
-                    //cout<<"!!!"<<endl;
-                    break;
-                }
-                else if(j == 2 )
-                {
-                    offset[irow] = offset[irow] + length_row*3/4;
-                    //cout<<"!!!"<<endl;
-                    break;
-                }
-
-                else
-                {
-                    bflag = false;
-                }
-            }
-        }
-
-        //tmpCenter = Point(center.x, center.y-offset[irow]);
-        //printpoint(affineImg, Point(center.x, center.y-offset[irow]));
-
-    }
-    /*
-    int loop=0;
-    for(loop=0; loop<24; loop++)
-    {
-        cout<<"row["<<loop<<"]="<<offset[loop]<<endl;
-    }
-    */
-
-
+    int irow=0;
 
     /* find the blocks contains the valid information  */
     vector<char> text;
@@ -560,10 +475,11 @@ int getUprightDownAngle(Mat affineImg, Vec3i ccl)
 
 /************************************************************************
 *
-* Function Description: get the angle which is upright down
+* Function Description: relocate the center of the circle for finding a offset pattern more accurate
 * Parameter Description:
 * * affineImg : input image
 * * ccl : the biggest circle
+* * block : store the info of the block, like width and length
 * * return value : the angle which make circle upright
 *
 *************************************************************************/
@@ -622,6 +538,81 @@ void relocateCenterofCircle(Mat affineImg, Vec3i& ccl, s_blockinfo& block)
     block.height = length_row;
     //printpoint(affineImg, center);
 }
+
+/************************************************************************
+*
+* Function Description: relocate the center of the circle for finding a offset pattern more accurate
+* Parameter Description:
+* * affineImg : input image
+* * ccl : the biggest circle
+* * offset : output value, offset pattern, very important
+* * length : the size of the array offset
+* * block : store the info of the block, like width and length
+*
+*************************************************************************/
+void findOffsetPattern(Mat affineImg, Vec3i ccl, int* offset, int length, s_blockinfo block)
+{
+    Point center = Point(ccl[0], ccl[1]);
+    int radius = ccl[2];
+
+    int irow;
+    for(irow=0; irow<length; irow++)
+    {
+        offset[irow] = block.height+2;
+
+    }
+
+    Point tmpCenter;
+    int tmpoffset[5] = {0, -2, 2, -1, 1};
+    for(irow=0; irow<length; irow++)
+    {
+        if(irow != 0)
+        {
+            offset[irow] =  offset[irow] + offset[irow-1];
+        }
+        tmpCenter = Point(center.x, center.y-offset[irow]);
+        bool bflag = true;
+        int j=0;
+        for(j=0; j<5; j++)
+        {
+            bool br = MpixelR(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
+            bool bg = MpixelG(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
+            bool bb = MpixelB(affineImg, tmpCenter.x, tmpCenter.y + tmpoffset[j]) >= 180 ? true: false;
+
+            if(!(br == b_colors[22-irow].r && bg == b_colors[22-irow].g && bb == b_colors[22-irow].b))
+            {
+                if(j == 3 && !bflag)
+                {
+                    offset[irow] = offset[irow] - block.height/2;
+                    break;
+                }
+                else if(j == 4 && !bflag)
+                {
+                    offset[irow] = offset[irow] + block.height/2;
+                    break;
+                }
+                else if(j == 1)
+                {
+                    offset[irow] = offset[irow] - block.height*3/4;
+                    break;
+                }
+                else if(j == 2 )
+                {
+                    offset[irow] = offset[irow] + block.height*3/4;
+                    break;
+                }
+                else
+                {
+                    bflag = false;
+                }
+            }
+
+        }
+    }
+
+}
+
+
 
 char decode(Mat affineImg, Point pt1, Point pt2)
 {
