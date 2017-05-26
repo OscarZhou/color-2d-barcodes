@@ -7,6 +7,7 @@
 #include <utility>
 #include <chrono>
 #include <ctime>
+#include <thread>
 
 using namespace std;
 using namespace cv;
@@ -19,6 +20,16 @@ using namespace chrono;
 
 #define MASK (1<<5 | 1<<4 | 1<<3 | 1<<2 | 1<<1 | 1<<0)
 
+
+
+/*********************************************************************************************
+ * Compile with:
+ * g++ -std=c++0x -o main -O3 main.cpp `pkg-config --libs --cflags opencv`
+ * Execute webcam code:
+ * ./main
+ * Execute static code: for example
+ * ./main ~/Downloads/abcde.jpg
+*********************************************************************************************/
 
 struct s_block
 {
@@ -96,46 +107,136 @@ Mat frame;//, image;
 int main(int argc, char** argv)
 {
 
-    VideoCapture cap;
-    cap.open(0);
-    if (!cap.isOpened())
-    {
-        cout << "Failed to open camera" << endl;
-        return 0;
-    }
-    cout << "Opened camera" << endl;
-    namedWindow("WebCam", 1);
-    cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
-    cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
-    cap >> frame;
-    printf("frame size %d %d \n",frame.rows, frame.cols);
-    int key=0;
-
-    double fps=0.0;
-    while (1){
-        system_clock::time_point start = system_clock::now();
+    if(argc != 2) {
+        cout<<"-----------start up the webcam!-----------"<<endl;
+        VideoCapture cap;
+        cap.open(0);
+        if (!cap.isOpened())
+        {
+            cout << "Failed to open camera" << endl;
+            return 0;
+        }
+        cout << "Opened camera" << endl;
+        namedWindow("WebCam", 1);
+        cap.set(CV_CAP_PROP_FRAME_WIDTH, 640);
+        cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
         cap >> frame;
+        printf("frame size %d %d \n",frame.rows, frame.cols);
+        int key=0;
 
-        if( frame.empty() )
-            break;
+        double fps=0.0;
+        while (1){
+            system_clock::time_point start = system_clock::now();
+            cap >> frame;
+
+            if( frame.empty() )
+                break;
+
+            /*  find a circle */
+            Vec3i biggest_circle;
+            int ret = getCircle(frame, biggest_circle);
+            if(ret < 0)
+            {
+                cout<<"can't recognize the circle !!!!!"<<endl;
+                continue;
+            }
+            circle(frame, Point(biggest_circle[0], biggest_circle[1]), biggest_circle[2], Scalar(0, 0, 255), 1, 8);
+
+            /* get the angle */
+            int angle= getAngle(frame);
+            /* rotate the circle according to the theta */
+            Mat affineImg;
+            rotateCircle(frame, biggest_circle, angle, affineImg);
+
+            /* detemine whether the circle is upright */
+            angle = getUprightDownAngle(affineImg, biggest_circle);
+
+            /* rotate circle in second time */
+            rotateCircle(affineImg, biggest_circle, angle, affineImg);
+
+
+            /* align the center of the circle */
+            s_blockinfo blockinfo = {0 , 0};
+            relocateCenterofCircle(affineImg, biggest_circle, blockinfo);
+            printpoint(affineImg, Point(biggest_circle[0], biggest_circle[1]));
+
+            /* find a pattern */
+            int offset[23] = {0};
+            findOffsetPattern(affineImg, biggest_circle, offset, 23, blockinfo);
+
+            /* find the blocks contains the valid information  */
+            vector<char> text = translate(affineImg, biggest_circle, offset, 23);
+            /* print text*/
+            //for(std::vector<char>::iterator it=text.begin(); it!=text.end(); it++)
+            //{
+            //    cout<<*it;
+            //}
+            cout<<endl;
+            if(!text.empty())
+            {
+                std::chrono::milliseconds timespan(10000); // or whatever
+
+                std::this_thread::sleep_for(timespan);
+            }
+
+
+
+
+            char printit[100];
+            sprintf(printit,"%2.1f",fps);
+            putText(frame, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
+            imshow("WebCam", frame);
+            key=waitKey(1);
+            if(key==113 || key==27) return 0;//either esc or 'q'
+
+            system_clock::time_point end = system_clock::now();
+            double seconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+            //fps = 1000000*10.0/seconds;
+            fps = 1000000/seconds;
+            cout << "frames " << fps << " seconds " << seconds << endl;
+
+        }
+        cout<<"scanning finished!"<<endl;
+    }
+    else if(argc == 2){
+        /*  read an image */
+        Mat colorImg = imread(argv[1], 1);
+        if( colorImg.empty() )
+        {
+            printf(" fail to read image \n");
+            exit(0);
+        }
 
         /*  find a circle */
         Vec3i biggest_circle;
-        int ret = getCircle(frame, biggest_circle);
+        int ret = getCircle(colorImg, biggest_circle);
         if(ret < 0)
         {
             cout<<"can't recognize the circle !!!!!"<<endl;
-            break;
+            exit(0);
         }
 
+        //circle(colorImg, Point(biggest_circle[0], biggest_circle[1]), biggest_circle[2], Scalar(0, 0, 255), 5, 8);
+
+        namedWindow("original", WINDOW_AUTOSIZE );
+        imshow("original", colorImg);
+
         /* get the angle */
-        int angle= getAngle(frame);
+        int angle= getAngle(colorImg);
+        //cout<<"first angle is "<<angle<<endl;
         /* rotate the circle according to the theta */
         Mat affineImg;
-        rotateCircle(frame, biggest_circle, angle, affineImg);
+        rotateCircle(colorImg, biggest_circle, angle, affineImg);
+
+
+
+        //namedWindow("first rotation", WINDOW_AUTOSIZE );
+        //imshow("first rotation", affineImg);
+
 
         /* detemine whether the circle is upright */
         angle = getUprightDownAngle(affineImg, biggest_circle);
+        //cout<<"second angle is "<<angle<<endl;
 
         /* rotate circle in second time */
         rotateCircle(affineImg, biggest_circle, angle, affineImg);
@@ -152,30 +253,18 @@ int main(int argc, char** argv)
 
         /* find the blocks contains the valid information  */
         vector<char> text = translate(affineImg, biggest_circle, offset, 23);
+
+
         /* print text*/
         for(std::vector<char>::iterator it=text.begin(); it!=text.end(); it++)
         {
             cout<<*it;
         }
         cout<<endl;
-
-
-
-
-
-        char printit[100];
-        sprintf(printit,"%2.1f",fps);
-        putText(frame, printit, cvPoint(10,30), FONT_HERSHEY_PLAIN, 2, cvScalar(255,255,255), 2, 8);
-        imshow("WebCam", frame);
-        key=waitKey(1);
-        if(key==113 || key==27) return 0;//either esc or 'q'
-
-        system_clock::time_point end = system_clock::now();
-        double seconds = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-        //fps = 1000000*10.0/seconds;
-        fps = 1000000/seconds;
-        cout << "frames " << fps << " seconds " << seconds << endl;
+        namedWindow("image", WINDOW_AUTOSIZE );
+        imshow("image", affineImg);
     }
+
     waitKey(0);
     return 0;
 }
@@ -414,7 +503,7 @@ void relocateCenterofCircle(Mat affineImg, Vec3i& ccl, s_blockinfo& block)
     ccl[1] = btop + round(length_row / 2.0)-1;
     block.width = length_col;
     block.height = length_row;
-    //printpoint(affineImg, center);
+    printpoint(affineImg, center);
 }
 
 /************************************************************************
@@ -527,7 +616,8 @@ vector<char> translate(Mat affineImg, Vec3i ccl, int* offset, int length)
                 {
                     pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
                     pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
-                    txt.push_back(decode(affineImg, pt1, pt2));
+                    cout<<decode(affineImg, pt1, pt2);
+                    //txt.push_back(decode(affineImg, pt1, pt2));
                     counter -= 2;
                     icol += 2;
                 }
@@ -542,7 +632,8 @@ vector<char> translate(Mat affineImg, Vec3i ccl, int* offset, int length)
             {
                 pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
                 pt2 = Point(center.x-offset[icol-1], center.y-offset[irow]);
-                txt.push_back(decode(affineImg, pt1, pt2));
+                cout<<decode(affineImg, pt1, pt2);
+                //txt.push_back(decode(affineImg, pt1, pt2));
                 counter -= 2;
                 if((blockNum%2==0) && icol ==1)
                 {
@@ -556,7 +647,8 @@ vector<char> translate(Mat affineImg, Vec3i ccl, int* offset, int length)
             {
                 pt1 = Point(center.x+offset[icol-1], center.y-offset[irow]);
                 pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
-                txt.push_back(decode(affineImg, pt1, pt2));
+                cout<<decode(affineImg, pt1, pt2);
+                //txt.push_back(decode(affineImg, pt1, pt2));
                 icol += 2;
                 counter -= 2;
             }
@@ -580,7 +672,8 @@ vector<char> translate(Mat affineImg, Vec3i ccl, int* offset, int length)
                 {
                     pt1 = Point(center.x-offset[icol], center.y+offset[irow]);
                     pt2 = Point(center.x+offset[icol], center.y+offset[irow]);
-                    txt.push_back(decode(affineImg, pt1, pt2));
+                    cout<<decode(affineImg, pt1, pt2);
+                    //txt.push_back(decode(affineImg, pt1, pt2));
                     counter -= 2;
                     icol += 2;
                 }
@@ -595,7 +688,8 @@ vector<char> translate(Mat affineImg, Vec3i ccl, int* offset, int length)
             {
                 pt1 = Point(center.x-offset[icol], center.y+offset[irow]);
                 pt2 = Point(center.x-offset[icol-1], center.y+offset[irow]);
-                txt.push_back(decode(affineImg, pt1, pt2));
+                cout<<decode(affineImg, pt1, pt2);
+                //txt.push_back(decode(affineImg, pt1, pt2));
                 counter -= 2;
                 if((blockNum%2==0) && icol ==1)
                 {
@@ -608,7 +702,8 @@ vector<char> translate(Mat affineImg, Vec3i ccl, int* offset, int length)
             {
                 pt1 = Point(center.x+offset[icol-1], center.y+offset[irow]);
                 pt2 = Point(center.x+offset[icol], center.y+offset[irow]);
-                txt.push_back(decode(affineImg, pt1, pt2));
+                cout<<decode(affineImg, pt1, pt2);
+                //txt.push_back(decode(affineImg, pt1, pt2));
                 icol += 2;
                 counter -= 2;
             }
