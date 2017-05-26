@@ -68,6 +68,7 @@ static int numofblockinrow[23] = {4, 8, 10, 12, 13,
 int getCircle(Mat colorImg, Vec3i& ccl);
 int getAngle(Mat colorImg);
 void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg);
+int getUprightDownAngle(Mat affineImg, Vec3i ccl);
 char decode(Mat affineImg, Point pt1, Point pt2);
 
 
@@ -96,6 +97,8 @@ int main(int argc, char** argv)
         printf(" fail to read image \n");
         exit(0);
     }
+    namedWindow("original", WINDOW_AUTOSIZE );
+    imshow("original", colorImg);
 
     /*  find a circle */
     Vec3i biggest_circle;
@@ -113,64 +116,20 @@ int main(int argc, char** argv)
 
     /* get the angle */
     int angle= getAngle(colorImg);
-
+    cout<<"the first angle of the rotation is "<<angle<<endl;
     /* rotate the circle according to the theta */
     Mat affineImg;
     rotateCircle(colorImg, center, angle, affineImg);
 
-    namedWindow("1rotat", WINDOW_AUTOSIZE);
+    namedWindow("1rotat", WINDOW_AUTOSIZE );
     imshow("1rotat", affineImg);
 
     /* detemine whether the circle is upright */
-    s_color col_top, col_right, col_bottom, col_left;
-    col_top.r = MpixelR(affineImg, center.x, center.y-20)>180 ?true:false;
-    col_top.g = MpixelG(affineImg, center.x, center.y-20)>180 ?true:false;
-    col_top.b = MpixelB(affineImg, center.x, center.y-20)>180 ?true:false;
-    //cout<<"top is "<<col_top.r<<", "<< col_top.g <<", "<<col_top.b<<endl;
-
-    col_right.r = MpixelR(affineImg, center.x+20, center.y)>180 ?true:false;
-    col_right.g = MpixelG(affineImg, center.x+20, center.y)>180 ?true:false;
-    col_right.b = MpixelB(affineImg, center.x+20, center.y)>180 ?true:false;
-    //cout<<"right is "<<col_right.r<<", "<< col_right.g <<", "<<col_right.b<<endl;
-
-    col_bottom.r = MpixelR(affineImg, center.x, center.y+20)>180 ?true:false;
-    col_bottom.g = MpixelG(affineImg, center.x, center.y+20)>180 ?true:false;
-    col_bottom.b = MpixelB(affineImg, center.x, center.y+20)>180 ?true:false;
-    //cout<<"bottom is "<<col_bottom.r<<", "<< col_bottom.g <<", "<<col_bottom.b<<endl;
-
-    col_left.r = MpixelR(affineImg, center.x-20, center.y)>180 ?true:false;
-    col_left.g = MpixelG(affineImg, center.x-20, center.y)>180 ?true:false;
-    col_left.b = MpixelB(affineImg, center.x-20, center.y)>180 ?true:false;
-    //cout<<"left is "<<col_left.r<<", "<< col_left.g <<", "<<col_left.b<<endl;
-
-
-    bool bTop = (col_top.r && !col_top.g && !col_top.b);
-    bool bRight = (col_right.r && !col_right.g && col_right.b);
-    bool bBottom = (col_bottom.r && !col_bottom.g && col_bottom.b);
-    bool bLeft = (col_left.r && !col_left.g && !col_left.b);
-
-    cout<<"------------->"<<bTop<<", "<<bRight<<", "<<bBottom<<", "<<bLeft<<endl;
-    int symbol = 1;
-    if(angle < 0) symbol = -1;
-    if( bTop && !bRight && bBottom && !bLeft)
-    {
-        angle = 270 * symbol;
-    }
-    else if( !bTop && !bRight && !bBottom && !bLeft )
-    {
-        angle = 180 * symbol;
-    }
-    else if( !bTop && bRight && !bBottom && bLeft )
-    {
-        angle = 90 * symbol;
-    }
-    else
-    {
-        angle = 0 * symbol;
-    }
-
-
+    angle = getUprightDownAngle(affineImg, biggest_circle);
     cout<<"the second angle of the rotation is "<<angle<<endl;
+
+
+
     Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     warpAffine(affineImg, affineImg, rotmatrix, colorImg.size());
 
@@ -571,10 +530,12 @@ int getAngle(Mat colorImg)
 
 /************************************************************************
 *
-* Function Description: get the aligned angle
+* Function Description: rotate circle
 * Parameter Description:
 * * coloImg : input image
-* * return value: angle
+* * center : the center of the circle
+* * angle : the aligned angle
+* * affineImg : output image
 *
 *************************************************************************/
 void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg)
@@ -582,6 +543,70 @@ void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg)
     Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
 }
+
+
+/************************************************************************
+*
+* Function Description: get the angle which is upright down
+* Parameter Description:
+* * affineImg : input image
+* * center : the center of the circle
+* * return value : the angle which make circle upright
+*
+*************************************************************************/
+int getUprightDownAngle(Mat affineImg, Vec3i ccl)
+{
+    int angle;
+    Point center = Point(ccl[0], ccl[1]);
+    int radius = ccl[2];
+
+    s_color col_top, col_right, col_bottom, col_left;
+    col_top.r = MpixelR(affineImg, center.x, center.y-radius/23)>180 ?true:false;
+    col_top.g = MpixelG(affineImg, center.x, center.y-radius/23)>180 ?true:false;
+    col_top.b = MpixelB(affineImg, center.x, center.y-radius/23)>180 ?true:false;
+
+    col_right.r = MpixelR(affineImg, center.x+radius/23, center.y)>180 ?true:false;
+    col_right.g = MpixelG(affineImg, center.x+radius/23, center.y)>180 ?true:false;
+    col_right.b = MpixelB(affineImg, center.x+radius/23, center.y)>180 ?true:false;
+
+    col_bottom.r = MpixelR(affineImg, center.x, center.y+radius/23)>180 ?true:false;
+    col_bottom.g = MpixelG(affineImg, center.x, center.y+radius/23)>180 ?true:false;
+    col_bottom.b = MpixelB(affineImg, center.x, center.y+radius/23)>180 ?true:false;
+
+    col_left.r = MpixelR(affineImg, center.x-radius/23, center.y)>180 ?true:false;
+    col_left.g = MpixelG(affineImg, center.x-radius/23, center.y)>180 ?true:false;
+    col_left.b = MpixelB(affineImg, center.x-radius/23, center.y)>180 ?true:false;
+
+    //this is the correct pattern
+    bool bTop = (col_top.r && !col_top.g && !col_top.b);
+    bool bRight = (col_right.r && !col_right.g && col_right.b);
+    bool bBottom = (col_bottom.r && !col_bottom.g && col_bottom.b);
+    bool bLeft = (col_left.r && !col_left.g && !col_left.b);
+
+    int symbol = 1;
+    if(angle < 0)
+        symbol = -1;
+
+    if( bTop && !bRight && bBottom && !bLeft)
+    {
+        angle = 270 * symbol;
+    }
+    else if( !bTop && !bRight && !bBottom && !bLeft )
+    {
+        angle = 180 * symbol;
+    }
+    else if( !bTop && bRight && !bBottom && bLeft )
+    {
+        angle = 90 * symbol;
+    }
+    else
+    {
+        angle = 0 * symbol;
+    }
+
+    return angle;
+}
+
 
 char decode(Mat affineImg, Point pt1, Point pt2)
 {
