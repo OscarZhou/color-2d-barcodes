@@ -84,7 +84,7 @@ char decode(Mat affineImg, Point pt1, Point pt2);
 void printpoint(Mat colorImg, Point pt)
 {
 
-    MpixelR(colorImg, pt.x, pt.y) = 255;
+    MpixelR(colorImg, pt.x, pt.y) = 0;
     MpixelG(colorImg, pt.x, pt.y) = 0;
     MpixelB(colorImg, pt.x, pt.y) = 0;
 
@@ -106,8 +106,6 @@ int main(int argc, char** argv)
         printf(" fail to read image \n");
         exit(0);
     }
-    namedWindow("original", WINDOW_AUTOSIZE );
-    imshow("original", colorImg);
 
     /*  find a circle */
     Vec3i biggest_circle;
@@ -117,15 +115,23 @@ int main(int argc, char** argv)
         cout<<"can't recognize the circle !!!!!"<<endl;
         exit(0);
     }
+    namedWindow("original", WINDOW_AUTOSIZE );
+    imshow("original", colorImg);
 
     /* get the angle */
     int angle= getAngle(colorImg);
+    cout<<"first angle is "<<angle<<endl;
     /* rotate the circle according to the theta */
     Mat affineImg;
     rotateCircle(colorImg, biggest_circle, angle, affineImg);
 
+    namedWindow("first rotation", WINDOW_AUTOSIZE );
+    imshow("first rotation", affineImg);
+
+
     /* detemine whether the circle is upright */
     angle = getUprightDownAngle(affineImg, biggest_circle);
+    cout<<"second angle is "<<angle<<endl;
 
     /* rotate circle in second time */
     rotateCircle(affineImg, biggest_circle, angle, affineImg);
@@ -133,6 +139,7 @@ int main(int argc, char** argv)
     /* align the center of the circle */
     s_blockinfo blockinfo = {0 , 0};
     relocateCenterofCircle(affineImg, biggest_circle, blockinfo);
+
 
     printpoint(affineImg, Point(biggest_circle[0], biggest_circle[1]));
 
@@ -143,12 +150,13 @@ int main(int argc, char** argv)
     /* find the blocks contains the valid information  */
     vector<char> text = translate(affineImg, biggest_circle, offset, 23);
 
+
     /* print text*/
     for(std::vector<char>::iterator it=text.begin(); it!=text.end(); it++)
     {
         cout<<*it;
     }
-
+    cout<<endl;
     namedWindow("image", WINDOW_AUTOSIZE );
     imshow("image", affineImg);
 
@@ -189,7 +197,7 @@ int getCircle(Mat colorImg, Vec3i& ccl)
             radius = c[2];
 
         }
-        //circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
+        circle(colorImg, Point(c[0], c[1]), c[2], Scalar(0, 0, 255), 5, 8);
     }
     ccl = circles[circle_index];
     return 1;
@@ -220,10 +228,11 @@ int getAngle(Mat colorImg)
         float x = lines[i][2] - lines[i][0];
         float y = lines[i][3] - lines[i][1];
         angle = round(atan2(y, x) * 180 / CV_PI);
-        //line( colorimgforline, Point(lines1[i][0], lines1[i][1]),
-        //    Point(lines1[i][2], lines1[i][3]), Scalar(0,0,255), 1, 8 );
+        //line( colorimgforline, Point(lines[i][0], lines[i][1]),
+        //    Point(lines[i][2], lines[i][3]), Scalar(0,0,255), 1, 8 );
         break;
     }
+
     return angle;
 }
 
@@ -260,23 +269,33 @@ int getUprightDownAngle(Mat affineImg, Vec3i ccl)
     int angle;
     Point center = Point(ccl[0], ccl[1]);
     int radius = ccl[2];
+    int offset = radius/23;
 
     s_color col_top, col_right, col_bottom, col_left;
-    col_top.r = MpixelR(affineImg, center.x, center.y-radius/23)>180 ?true:false;
-    col_top.g = MpixelG(affineImg, center.x, center.y-radius/23)>180 ?true:false;
-    col_top.b = MpixelB(affineImg, center.x, center.y-radius/23)>180 ?true:false;
+    col_top.r = MpixelR(affineImg, center.x, center.y-offset)>180 ?true:false;
+    col_top.g = MpixelG(affineImg, center.x, center.y-offset)>180 ?true:false;
+    col_top.b = MpixelB(affineImg, center.x, center.y-offset)>180 ?true:false;
+    printpoint(affineImg, Point(center.x, center.y-offset));
+    cout<<"top is "<<col_top.r<<", "<< col_top.g <<", "<<col_top.b<<endl;
 
-    col_right.r = MpixelR(affineImg, center.x+radius/23, center.y)>180 ?true:false;
-    col_right.g = MpixelG(affineImg, center.x+radius/23, center.y)>180 ?true:false;
-    col_right.b = MpixelB(affineImg, center.x+radius/23, center.y)>180 ?true:false;
 
-    col_bottom.r = MpixelR(affineImg, center.x, center.y+radius/23)>180 ?true:false;
-    col_bottom.g = MpixelG(affineImg, center.x, center.y+radius/23)>180 ?true:false;
-    col_bottom.b = MpixelB(affineImg, center.x, center.y+radius/23)>180 ?true:false;
+    col_right.r = MpixelR(affineImg, center.x+offset, center.y)>180 ?true:false;
+    col_right.g = MpixelG(affineImg, center.x+offset, center.y)>180 ?true:false;
+    col_right.b = MpixelB(affineImg, center.x+offset, center.y)>180 ?true:false;
+    printpoint(affineImg, Point(center.x+offset, center.y));
+    cout<<"right is "<<col_right.r<<", "<< col_right.g <<", "<<col_right.b<<endl;
 
-    col_left.r = MpixelR(affineImg, center.x-radius/23, center.y)>180 ?true:false;
-    col_left.g = MpixelG(affineImg, center.x-radius/23, center.y)>180 ?true:false;
-    col_left.b = MpixelB(affineImg, center.x-radius/23, center.y)>180 ?true:false;
+    col_bottom.r = MpixelR(affineImg, center.x, center.y+offset)>180 ?true:false;
+    col_bottom.g = MpixelG(affineImg, center.x, center.y+offset)>180 ?true:false;
+    col_bottom.b = MpixelB(affineImg, center.x, center.y+offset)>180 ?true:false;
+    printpoint(affineImg, Point(center.x, center.y+offset));
+    cout<<"bottom is "<<col_bottom.r<<", "<< col_bottom.g <<", "<<col_bottom.b<<endl;
+
+    col_left.r = MpixelR(affineImg, center.x-offset, center.y)>180 ?true:false;
+    col_left.g = MpixelG(affineImg, center.x-offset, center.y)>180 ?true:false;
+    col_left.b = MpixelB(affineImg, center.x-offset, center.y)>180 ?true:false;
+    printpoint(affineImg, Point(center.x-offset, center.y));
+    cout<<"left is "<<col_left.r<<", "<< col_left.g <<", "<<col_left.b<<endl;
 
     //this is the correct pattern
     bool bTop = (col_top.r && !col_top.g && !col_top.b);
@@ -284,25 +303,23 @@ int getUprightDownAngle(Mat affineImg, Vec3i ccl)
     bool bBottom = (col_bottom.r && !col_bottom.g && col_bottom.b);
     bool bLeft = (col_left.r && !col_left.g && !col_left.b);
 
-    int symbol = 1;
-    if(angle < 0)
-        symbol = -1;
+    cout<<"------------->"<<bTop<<", "<<bRight<<", "<<bBottom<<", "<<bLeft<<endl;
 
     if( bTop && !bRight && bBottom && !bLeft)
     {
-        angle = 270 * symbol;
+        angle = 90;
     }
     else if( !bTop && !bRight && !bBottom && !bLeft )
     {
-        angle = 180 * symbol;
+        angle = 180;
     }
     else if( !bTop && bRight && !bBottom && bLeft )
     {
-        angle = 90 * symbol;
+        angle = 270;
     }
     else
     {
-        angle = 0 * symbol;
+        angle = 0;
     }
 
     return angle;
@@ -444,6 +461,7 @@ void findOffsetPattern(Mat affineImg, Vec3i ccl, int* offset, int length, s_bloc
             }
 
         }
+        printpoint(affineImg, tmpCenter);
     }
 
 }
