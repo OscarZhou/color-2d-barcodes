@@ -34,6 +34,12 @@ struct s_color
     bool b;
 };
 
+struct s_blockinfo
+{
+    int width;
+    int height;
+};
+
 static s_color b_colors[24] = {{false, false, false},
                         {true, true, true},
                         {false, false, true},
@@ -69,6 +75,7 @@ int getCircle(Mat colorImg, Vec3i& ccl);
 int getAngle(Mat colorImg);
 void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg);
 int getUprightDownAngle(Mat affineImg, Vec3i ccl);
+void relocateCenterofCircle(Mat affineImg, Vec3i& ccl, s_blockinfo& block);
 char decode(Mat affineImg, Point pt1, Point pt2);
 
 
@@ -121,82 +128,25 @@ int main(int argc, char** argv)
     Mat affineImg;
     rotateCircle(colorImg, center, angle, affineImg);
 
-    namedWindow("1rotat", WINDOW_AUTOSIZE );
-    imshow("1rotat", affineImg);
-
     /* detemine whether the circle is upright */
     angle = getUprightDownAngle(affineImg, biggest_circle);
     cout<<"the second angle of the rotation is "<<angle<<endl;
 
-
-
-    Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
-    warpAffine(affineImg, affineImg, rotmatrix, colorImg.size());
-
-    //cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
-    namedWindow("2rotat", WINDOW_AUTOSIZE);
-    imshow("2rotat", affineImg);
-
+    /* rotate for second time */
+    rotateCircle(affineImg, center, angle, affineImg);
 
     /* align the center of the circle */
-    // according to the radius to determine the times of for loop
-    int min_col = center.x-round(radius/23), max_col = center.x+round(radius/23);//center.x-30;
-    int min_row = center.y-round(radius/23), max_row = center.y+round(radius/23);//center.y-30;
+    s_blockinfo blockinfo = {0 , 0};
+    relocateCenterofCircle(affineImg, biggest_circle, blockinfo);
 
-    int k, bleft=0, btop=0;
-    int length_row = 0;
-    int length_col = 0;
-    for(k=min_col; k<max_col; k++)
-    {
-        s_color color;
-        color.r = MpixelR(affineImg, k, center.y)>180 ?true:false;
-        color.g = MpixelG(affineImg, k, center.y)>180 ?true:false;
-        color.b = MpixelB(affineImg, k, center.y)>180 ?true:false;
+    printpoint(affineImg, Point(biggest_circle[0], biggest_circle[1]));
 
-        if((color.r && color.g && color.b) )
-        {
-            if(length_col == 0)
-            {
-                bleft = k;
-            }
-            length_col++;
-        }
-        else continue;
-
-    }
-
-    for(k=min_row; k<max_row; k++)
-    {
-        s_color color;
-        color.r = MpixelR(affineImg, center.x, k)>180 ?true:false;
-        color.g = MpixelG(affineImg, center.x, k)>180 ?true:false;
-        color.b = MpixelB(affineImg, center.x, k)>180 ?true:false;
-
-        if((color.r && color.g && color.b))
-        {
-            if(length_row == 0)
-            {
-                btop = k;
-            }
-            length_row++;
-        }
-        else continue;
-
-    }
-    //cout<<"boundary position=("<<bleft<<", "<<btop<<")"<<endl;
-    Point pt3 = Point(bleft, center.y);
-    Point pt4 = Point(center.x, btop);
-    printpoint(affineImg, pt3);
-    printpoint(affineImg, pt4);
+    namedWindow("After Rotation", WINDOW_AUTOSIZE);
+    imshow("After Rotation", affineImg);
 
 
-    center.x = bleft + round(length_col / 2.0) -1;
-    center.y = btop + round(length_row / 2.0) -1;
-    //cout<<"center=("<<center.x<<", "<<center.y<<")"<<endl;
-    printpoint(affineImg, center);
-
-
-
+    int length_col = blockinfo.width;
+    int length_row = blockinfo.height;
     /* find a pattern */
     int irow;
     int offset[23] = {0}; // the value 20 is not fixed
@@ -550,7 +500,7 @@ void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg)
 * Function Description: get the angle which is upright down
 * Parameter Description:
 * * affineImg : input image
-* * center : the center of the circle
+* * ccl : the biggest circle
 * * return value : the angle which make circle upright
 *
 *************************************************************************/
@@ -607,6 +557,71 @@ int getUprightDownAngle(Mat affineImg, Vec3i ccl)
     return angle;
 }
 
+
+/************************************************************************
+*
+* Function Description: get the angle which is upright down
+* Parameter Description:
+* * affineImg : input image
+* * ccl : the biggest circle
+* * return value : the angle which make circle upright
+*
+*************************************************************************/
+void relocateCenterofCircle(Mat affineImg, Vec3i& ccl, s_blockinfo& block)
+{
+    Point center = Point(ccl[0], ccl[1]);
+    int radius = ccl[2];
+
+    int min_col = center.x-round(radius/23), max_col = center.x+round(radius/23);//center.x-30;
+    int min_row = center.y-round(radius/23), max_row = center.y+round(radius/23);//center.y-30;
+
+    int k, bleft=0, btop=0;
+    int length_row = 0;
+    int length_col = 0;
+    for(k=min_col; k<max_col; k++) //calculate the numbers of blocks in horizotal direction
+    {
+        s_color color;
+        color.r = MpixelR(affineImg, k, center.y)>180 ?true:false;
+        color.g = MpixelG(affineImg, k, center.y)>180 ?true:false;
+        color.b = MpixelB(affineImg, k, center.y)>180 ?true:false;
+
+        if((color.r && color.g && color.b) )
+        {
+            if(length_col == 0)
+            {
+                bleft = k;
+            }
+            length_col++;
+        }
+        else continue;
+
+    }
+
+    for(k=min_row; k<max_row; k++) //calculate the numbers of blocks in vertical direction
+    {
+        s_color color;
+        color.r = MpixelR(affineImg, center.x, k)>180 ?true:false;
+        color.g = MpixelG(affineImg, center.x, k)>180 ?true:false;
+        color.b = MpixelB(affineImg, center.x, k)>180 ?true:false;
+
+        if((color.r && color.g && color.b))
+        {
+            if(length_row == 0)
+            {
+                btop = k;
+            }
+            length_row++;
+        }
+        else continue;
+
+    }
+
+    ccl[0] = bleft + round(length_col / 2.0)-1;
+    ccl[1] = btop + round(length_row / 2.0)-1;
+    block.width = length_col;
+    block.height = length_row;
+    //printpoint(affineImg, center);
+}
 
 char decode(Mat affineImg, Point pt1, Point pt2)
 {
