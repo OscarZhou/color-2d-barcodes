@@ -73,10 +73,11 @@ static int numofblockinrow[23] = {4, 8, 10, 12, 13,
 
 int getCircle(Mat colorImg, Vec3i& ccl);
 int getAngle(Mat colorImg);
-void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg);
+void rotateCircle(Mat colorImg, Vec3i ccl, int angle, Mat& affineImg);
 int getUprightDownAngle(Mat affineImg, Vec3i ccl);
 void relocateCenterofCircle(Mat affineImg, Vec3i& ccl, s_blockinfo& block);
 void findOffsetPattern(Mat affineImg, Vec3i ccl, int* offset, int length, s_blockinfo block);
+vector<char> translate(Mat affineImg, Vec3i ccl, int* offest, int length);
 char decode(Mat affineImg, Point pt1, Point pt2);
 
 
@@ -117,24 +118,17 @@ int main(int argc, char** argv)
         exit(0);
     }
 
-    Point center;
-    center.x = biggest_circle[0];
-    center.y = biggest_circle[1];
-    int radius = biggest_circle[2];
-
     /* get the angle */
     int angle= getAngle(colorImg);
-    cout<<"the first angle of the rotation is "<<angle<<endl;
     /* rotate the circle according to the theta */
     Mat affineImg;
-    rotateCircle(colorImg, center, angle, affineImg);
+    rotateCircle(colorImg, biggest_circle, angle, affineImg);
 
     /* detemine whether the circle is upright */
     angle = getUprightDownAngle(affineImg, biggest_circle);
-    cout<<"the second angle of the rotation is "<<angle<<endl;
 
-    /* rotate for second time */
-    rotateCircle(affineImg, center, angle, affineImg);
+    /* rotate circle in second time */
+    rotateCircle(affineImg, biggest_circle, angle, affineImg);
 
     /* align the center of the circle */
     s_blockinfo blockinfo = {0 , 0};
@@ -142,183 +136,23 @@ int main(int argc, char** argv)
 
     printpoint(affineImg, Point(biggest_circle[0], biggest_circle[1]));
 
-    namedWindow("After Rotation", WINDOW_AUTOSIZE);
-    imshow("After Rotation", affineImg);
-
-
-    int length_col = blockinfo.width;
-    int length_row = blockinfo.height;
-
     /* find a pattern */
     int offset[23] = {0};
     findOffsetPattern(affineImg, biggest_circle, offset, 23, blockinfo);
 
-    int irow=0;
-
     /* find the blocks contains the valid information  */
-    vector<char> text;
-    for(irow=22; irow>=0; irow--)
-    {
-        //cout<<"~~irow="<<irow<<endl;
-        int icol;
-        Point pt1, pt2;
-        //cout<<"~~numofblockinrow[22-irow]="<<numofblockinrow[22-irow]<<endl;
-        //break;
-        int counter = numofblockinrow[22-irow] * 2;
-        icol = numofblockinrow[22-irow]-1;
-        bool left_flag = true;
-        do
-        {
-            if(icol==0)
-            {
-                if(numofblockinrow[22-irow]%2==1)
-                {
-                    pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
-                    pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
-                    text.push_back(decode(affineImg, pt1, pt2));
-                    //printpoint(affineImg, pt1);
-                    //printpoint(affineImg, pt2);
-                    counter -= 2;
-                    icol += 2;
-                }
-                else
-                {
-                    icol = 1;
-                    //left_flag = false;
-                    //cout<<"1 icol="<<icol<<endl;
-                    //continue;
-                }
-                left_flag = false;
-                //icol += 2;
-                //cout<<"2 icol="<<icol<<endl;
-                continue;
-            }
-            if(left_flag)
-            {
-                pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
-                pt2 = Point(center.x-offset[icol-1], center.y-offset[irow]);
-                text.push_back(decode(affineImg, pt1, pt2));
-                //printpoint(affineImg, pt1);
-                //printpoint(affineImg, pt2);
-                counter -= 2;
-                //cout<<"3 icol="<<icol<<endl;
-                if((numofblockinrow[22-irow]%2==0) && icol ==1)
-                {
-                    icol = 0;
-                    continue;
-                }
-                icol -= 2;
+    vector<char> text = translate(affineImg, biggest_circle, offset, 23);
 
-            }
-            else
-            {
-                pt1 = Point(center.x+offset[icol-1], center.y-offset[irow]);
-                pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
-                text.push_back(decode(affineImg, pt1, pt2));
-                //printpoint(affineImg, pt1);
-                //printpoint(affineImg, pt2);
-                icol += 2;
-                counter -= 2;
-                //cout<<"4 icol="<<icol<<endl;
-            }
-
-        }while(counter);
-    }
-    //
-    for(irow=0; irow<23; irow++)
-    {
-        //cout<<"~~irow="<<irow<<endl;
-        int icol;
-        Point pt1, pt2;
-        //cout<<"~~numofblockinrow[irow]="<<numofblockinrow[22-irow]<<endl;
-        //break;
-        int counter = numofblockinrow[22-irow] * 2;
-        icol = numofblockinrow[22-irow]-1;
-        bool left_flag = true;
-        do
-        {
-            if(icol==0)
-            {
-                if(numofblockinrow[22-irow]%2==1)
-                {
-                    pt1 = Point(center.x-offset[icol], center.y+offset[irow]);
-                    pt2 = Point(center.x+offset[icol], center.y+offset[irow]);
-                    text.push_back(decode(affineImg, pt1, pt2));
-                    //printpoint(affineImg, pt1);
-                    //printpoint(affineImg, pt2);
-                    counter -= 2;
-                    icol += 2;
-                }
-                else
-                {
-                    icol = 1;
-                    //left_flag = false;
-                    //cout<<"1 icol="<<icol<<endl;
-                    //continue;
-                }
-                left_flag = false;
-                //icol += 2;
-                //cout<<"2 icol="<<icol<<endl;
-                continue;
-            }
-            if(left_flag)
-            {
-                pt1 = Point(center.x-offset[icol], center.y+offset[irow]);
-                pt2 = Point(center.x-offset[icol-1], center.y+offset[irow]);
-                text.push_back(decode(affineImg, pt1, pt2));
-                //printpoint(affineImg, pt1);
-                //printpoint(affineImg, pt2);
-                counter -= 2;
-                //cout<<"3 icol="<<icol<<endl;
-                if((numofblockinrow[22-irow]%2==0) && icol ==1)
-                {
-                    icol = 0;
-                    continue;
-                }
-                icol -= 2;
-
-            }
-            else
-            {
-                pt1 = Point(center.x+offset[icol-1], center.y+offset[irow]);
-                pt2 = Point(center.x+offset[icol], center.y+offset[irow]);
-                text.push_back(decode(affineImg, pt1, pt2));
-                //printpoint(affineImg, pt1);
-                //printpoint(affineImg, pt2);
-                icol += 2;
-                counter -= 2;
-                //cout<<"4 icol="<<icol<<endl;
-            }
-
-        }while(counter);
-    }
+    /* print text*/
     for(std::vector<char>::iterator it=text.begin(); it!=text.end(); it++)
     {
         cout<<*it;
     }
 
-
-    cout<<"r="<<radius/23<<endl;
-    //namedWindow("Before Rotation", WINDOW_NORMAL );
-    //imshow("Before Rotation", colorImg);
-    //namedWindow("After Rotation", WINDOW_AUTOSIZE);
-    //imshow("After Rotation", affineImg);
-
-    //cvNamedWindow("Source", WINDOW_AUTOSIZE   );
-    //cvShowImage("Source", srcimg);
-    //cvNamedWindow("Hough", WINDOW_AUTOSIZE  );
-    //cvShowImage("Hough", dstimg);
-
-    //namedWindow("Circles detected", WINDOW_AUTOSIZE );
-    //imshow("Circles detected", greyImg);
-    //namedWindow("Original image", WINDOW_AUTOSIZE );
-    //imshow("Original image", colorImg);
-
-
+    namedWindow("image", WINDOW_AUTOSIZE );
+    imshow("image", affineImg);
 
     waitKey(0);
-
-
     return 0;
 }
 
@@ -403,8 +237,10 @@ int getAngle(Mat colorImg)
 * * affineImg : output image
 *
 *************************************************************************/
-void rotateCircle(Mat colorImg, Point center, int angle, Mat& affineImg)
+void rotateCircle(Mat colorImg, Vec3i ccl, int angle, Mat& affineImg)
 {
+    Point center = Point(ccl[0], ccl[1]);
+
     Mat rotmatrix = getRotationMatrix2D(Point(center.x, center.y), angle, 1);
     warpAffine(colorImg, affineImg, rotmatrix, colorImg.size());
 }
@@ -593,12 +429,12 @@ void findOffsetPattern(Mat affineImg, Vec3i ccl, int* offset, int length, s_bloc
                 }
                 else if(j == 1)
                 {
-                    offset[irow] = offset[irow] - block.height*3/4;
+                    offset[irow] = offset[irow] - block.height/2;
                     break;
                 }
                 else if(j == 2 )
                 {
-                    offset[irow] = offset[irow] + block.height*3/4;
+                    offset[irow] = offset[irow] + block.height/2;
                     break;
                 }
                 else
@@ -612,13 +448,145 @@ void findOffsetPattern(Mat affineImg, Vec3i ccl, int* offset, int length, s_bloc
 
 }
 
+/************************************************************************
+*
+* Function Description: translate the 2dbarcode
+* Parameter Description:
+* * affineImg : input image
+* * ccl : the biggest circle
+* * offset : output value, offset pattern, very important
+* * length : the size of the array offset
+* * return value : decoded text
+*
+*************************************************************************/
+vector<char> translate(Mat affineImg, Vec3i ccl, int* offset, int length)
+{
+    vector<char> txt;
 
+    Point center = Point(ccl[0], ccl[1]);
+    int radius = ccl[2];
 
+    int irow=0;
+    for(irow=length-1; irow>=0; irow--)
+    {
+
+        Point pt1, pt2;
+        int blockNum = numofblockinrow[(length-1)-irow];
+        int counter = blockNum * 2;  // the number of iterating block
+        bool stay_left_area = true; // the current area of iterating block, true:left area, false: right area
+        int icol = blockNum-1;  // the start position for reading
+
+        do
+        {
+            if(icol==0)
+            {
+                if(blockNum%2==1)
+                {
+                    pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
+                    pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
+                    txt.push_back(decode(affineImg, pt1, pt2));
+                    counter -= 2;
+                    icol += 2;
+                }
+                else
+                {
+                    icol = 1; //if the blockNum is even, read right area from index icol-1
+                }
+                stay_left_area = false;
+                continue;
+            }
+            if(stay_left_area)
+            {
+                pt1 = Point(center.x-offset[icol], center.y-offset[irow]);
+                pt2 = Point(center.x-offset[icol-1], center.y-offset[irow]);
+                txt.push_back(decode(affineImg, pt1, pt2));
+                counter -= 2;
+                if((blockNum%2==0) && icol ==1)
+                {
+                    icol = 0;
+                    continue;
+                }
+                icol -= 2;
+
+            }
+            else
+            {
+                pt1 = Point(center.x+offset[icol-1], center.y-offset[irow]);
+                pt2 = Point(center.x+offset[icol], center.y-offset[irow]);
+                txt.push_back(decode(affineImg, pt1, pt2));
+                icol += 2;
+                counter -= 2;
+            }
+
+        }while(counter);
+    }
+
+    for(irow=0; irow<length; irow++)
+    {
+        Point pt1, pt2;
+        int blockNum = numofblockinrow[(length-1)-irow];
+        int counter = blockNum * 2;  // the number of iterating block
+        bool stay_left_area = true; // the current area of iterating block, true:left area, false: right area
+        int icol = blockNum-1;  // the start position for reading
+
+        do
+        {
+            if(icol==0)
+            {
+                if(blockNum%2==1)
+                {
+                    pt1 = Point(center.x-offset[icol], center.y+offset[irow]);
+                    pt2 = Point(center.x+offset[icol], center.y+offset[irow]);
+                    txt.push_back(decode(affineImg, pt1, pt2));
+                    counter -= 2;
+                    icol += 2;
+                }
+                else
+                {
+                    icol = 1;
+                }
+                stay_left_area = false;
+                continue;
+            }
+            if(stay_left_area)
+            {
+                pt1 = Point(center.x-offset[icol], center.y+offset[irow]);
+                pt2 = Point(center.x-offset[icol-1], center.y+offset[irow]);
+                txt.push_back(decode(affineImg, pt1, pt2));
+                counter -= 2;
+                if((blockNum%2==0) && icol ==1)
+                {
+                    icol = 0;
+                    continue;
+                }
+                icol -= 2;
+            }
+            else
+            {
+                pt1 = Point(center.x+offset[icol-1], center.y+offset[irow]);
+                pt2 = Point(center.x+offset[icol], center.y+offset[irow]);
+                txt.push_back(decode(affineImg, pt1, pt2));
+                icol += 2;
+                counter -= 2;
+            }
+
+        }while(counter);
+    }
+    return txt;
+}
+
+/************************************************************************
+*
+* Function Description: decoding function
+* Parameter Description:
+* * affineImg : input image
+* * pt1 : left pixel
+* * pt2 : right pixel
+* * return : decoded one char
+*
+*************************************************************************/
 char decode(Mat affineImg, Point pt1, Point pt2)
 {
-    /* decode  emulator 2 square */
-    //Point pt1 = Point(center.x-20, center.y);//magenta
-    //Point pt2 = Point(center.x+10, center.y);//red
     s_block b1, b2;
     b1.r = MpixelR(affineImg, pt1.x, pt1.y)>180 ?1:0;
     b1.g = MpixelG(affineImg, pt1.x, pt1.y)>180 ?1:0;
